@@ -6,7 +6,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const JWT_SECRET = "sabkasathi_secret";
 
 // ===== MIDDLEWARE =====
@@ -14,7 +14,8 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // ===== MONGODB =====
-mongoose.connect('mongodb://127.0.0.1:27017/sabka_sathi', {
+// Replace this with your Atlas connection string
+mongoose.connect('mongodb+srv://<username>:<password>@cluster0.mongodb.net/sabka_sathi?retryWrites=true&w=majority', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(()=>console.log("MongoDB connected"))
@@ -32,34 +33,38 @@ const User = mongoose.model('User', userSchema);
 
 // ===== SIGNUP =====
 app.post('/api/signup', async (req, res)=>{
-  const {name,mobile,password,role,...rest} = req.body;
-  if(!name || !mobile || !password || !role)
-    return res.json({success:false,message:"Missing fields"});
+  try{
+    const {name,mobile,password,role,...rest} = req.body;
+    if(!name || !mobile || !password || !role)
+      return res.json({success:false,message:"Missing fields"});
 
-  const existing = await User.findOne({mobile,role});
-  if(existing) return res.json({success:false,message:"User already exists"});
+    const existing = await User.findOne({mobile,role});
+    if(existing) return res.json({success:false,message:"User already exists"});
 
-  const hash = await bcrypt.hash(password,10);
-  const user = new User({name,mobile,password:hash,role,extra:rest});
-  await user.save();
+    const hash = await bcrypt.hash(password,10);
+    const user = new User({name,mobile,password:hash,role,extra:rest});
+    await user.save();
 
-  const token = jwt.sign({id:user._id,role},JWT_SECRET,{expiresIn:'7d'});
-  res.json({success:true,token,userId:user._id});
+    const token = jwt.sign({id:user._id,role},JWT_SECRET,{expiresIn:'7d'});
+    res.json({success:true,token,userId:user._id});
+  }catch(err){res.json({success:false,message:err.message});}
 });
 
 // ===== LOGIN =====
 app.post('/api/login', async (req,res)=>{
-  const {mobile,password,role} = req.body;
-  if(!mobile || !password || !role) return res.json({success:false,message:"Missing fields"});
+  try{
+    const {mobile,password,role} = req.body;
+    if(!mobile || !password || !role) return res.json({success:false,message:"Missing fields"});
 
-  const user = await User.findOne({mobile,role});
-  if(!user) return res.json({success:false,message:"User not found"});
+    const user = await User.findOne({mobile,role});
+    if(!user) return res.json({success:false,message:"User not found"});
 
-  const match = await bcrypt.compare(password,user.password);
-  if(!match) return res.json({success:false,message:"Incorrect password"});
+    const match = await bcrypt.compare(password,user.password);
+    if(!match) return res.json({success:false,message:"Incorrect password"});
 
-  const token = jwt.sign({id:user._id,role},JWT_SECRET,{expiresIn:'7d'});
-  res.json({success:true,token,userId:user._id});
+    const token = jwt.sign({id:user._id,role},JWT_SECRET,{expiresIn:'7d'});
+    res.json({success:true,token,userId:user._id});
+  }catch(err){res.json({success:false,message:err.message});}
 });
 
 // ===== GET PROFILE =====
@@ -73,4 +78,4 @@ app.get('/api/me', async (req,res)=>{
   }catch(err){res.json({success:false,message:"Invalid token"});}
 });
 
-app.listen(PORT, ()=>console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, ()=>console.log(`Server running on port ${PORT}`));
