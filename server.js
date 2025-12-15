@@ -199,14 +199,16 @@ app.post("/api/products", async (req,res)=>{
 });
 
 /* ================= GET PRODUCTS BY WHOLESALER ================= */
-app.get("/api/products/wholesaler/:wid", async (req,res)=>{
+// Backend example (Node/Express + Mongoose)
+app.get("/api/products/wholesaler/:shortId", async (req,res)=>{
+  const shortId = req.params.shortId.toLowerCase();
   try{
-    const products = await Product.find({wholesalerId:req.params.wid}).sort({createdAt:-1});
-    res.json({success:true,products});
-  }catch(err){
-    console.log(err);
-    res.status(500).json({success:false,message:"Server error"});
-  }
+    // Search where first 8 chars of wholesalerId match
+    const products = await Product.find({
+      wholesalerId: { $regex: "^"+shortId, $options: "i" }
+    });
+    res.json({ success:true, products });
+  }catch(err){ res.json({ success:false, message:"Server error" }) }
 });
 
 /* ================= PLACE ORDER ================= */
