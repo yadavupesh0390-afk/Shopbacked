@@ -1,109 +1,137 @@
-// ================== server.js ==================
-const express = require('express');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-const JWT_SECRET = "sabkasathi_secret"; // Secret for JWT
+app.use(cors());
+app.use(express.json());
 
-// ===== MIDDLEWARE =====
-app.use(cors()); // Enable cross-origin requests
-app.use(express.json()); // Parse JSON bodies
+/* ================= MONGO CONNECT ================= */
+mongoose.connect(process.env.MONGO_URI)
+.then(()=>console.log("MongoDB connected"))
+.catch(err=>console.log("Mongo error",err));
 
-// ===== MONGODB =====
-// Use your Atlas connection string here
-const MONGO_URI = "mongodb+srv://yadavupesh39_db_user:SHJAjSJTIUfPiWyk@cluster0.uapmdte.mongodb.net/sabka_sathi?retryWrites=true&w=majority";
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(()=>console.log("MongoDB connected ✅"))
-  .catch(err=>console.error("MongoDB connection error:", err));
-
-// ===== SCHEMA =====
+/* ================= USER SCHEMA ================= */
 const userSchema = new mongoose.Schema({
-  name: {type: String, required: true},
-  mobile: {type: String, required: true},
-  password: {type: String, required: true},
-  role: {type: String, required: true},
-  extra: {type: Object, default: {}}
-});
+  role:String,
 
-const User = mongoose.model('User', userSchema);
+  /* COMMON */
+  name:String,
+  mobile:String,
+  password:String,
 
-// ===== SIGNUP =====
-app.post('/api/signup', async (req, res) => {
-  try {
-    const {name, mobile, password, role, ...rest} = req.body;
+  /* WHOLESALER / RETAILER */
+  shop_current_location:String,
 
-    if(!name || !mobile || !password || !role) {
-      return res.status(400).json({success:false,message:"Missing required fields"});
+  /* DELIVERY */
+  alternate_mobile_optional:String,
+  current_live_location:String,
+  vehicle:String,
+  vehicle_model:String,
+  vehicle_number:String,
+
+  /* ADMIN */
+  full_name:String,
+  official_mobile_number:String,
+  login_mobile:String
+},{timestamps:true});
+
+const User = mongoose.model("User",userSchema);
+
+/* ================= SIGNUP ================= */
+app.post("/api/signup", async (req,res)=>{
+  try{
+    const data = req.body;
+    const { role, password } = data;
+
+    // 🔑 mobile detection (frontend compatible)
+    const mobile =
+      data.mobile ||
+      data.upi_mobile_number ||
+      data.mobile_number ||
+      data.login_mobile;
+
+    if(!role || !password || !mobile){
+      return res.json({success:false,message:"Missing required fields"});
     }
 
-    const existingUser = await User.findOne({mobile, role});
-    if(existingUser) return res.status(400).json({success:false,message:"User already exists"});
+    const exists = await User.findOne({ mobile, role });
+    if(exists){
+      return res.json({success:false,message:"User already exists"});
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password,10);
 
     const user = new User({
-      name,
+      ...data,
       mobile,
-      password: hashedPassword,
-      role,
-      extra: rest
+      password:hashed
     });
 
     await user.save();
 
-    const token = jwt.sign({id:user._id, role}, JWT_SECRET, {expiresIn: '7d'});
+    const token = jwt.sign(
+      {id:user._id,role:user.role},
+      process.env.JWT_SECRET,
+      {expiresIn:"7d"}
+    );
 
-    res.json({success:true, token, userId: user._id});
-  } catch(err) {
-    console.error(err);
-    res.status(500).json({success:false, message:"Server error"});
+    res.json({
+      success:true,
+      message:"Signup successful",
+      token,
+      userId:user._id
+    });
+
+  }catch(err){
+    res.status(500).json({success:false,message:"Server error"});
   }
 });
 
-// ===== LOGIN =====
-app.post('/api/login', async (req, res) => {
-  try {
-    const {mobile, password, role} = req.body;
-    if(!mobile || !password || !role) {
-      return res.status(400).json({success:false,message:"Missing required fields"});
+/* ================= LOGIN ================= */
+app.post("/api/login", async (req,res)=>{
+  try{
+    const { mobile, password, role } = req.body;
+
+    if(!mobile || !password || !role){
+      return res.json({success:false,message:"Missing fields"});
     }
 
-    const user = await User.findOne({mobile, role});
-    if(!user) return res.status(404).json({success:false,message:"User not found"});
+    const user = await User.findOne({ mobile, role });
+    if(!user){
+      return res.json({success:false,message:"User not found"});
+    }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if(!isMatch) return res.status(401).json({success:false,message:"Incorrect password"});
+    const ok = await bcrypt.compare(password,user.password);
+    if(!ok){
+      return res.json({success:false,message:"Wrong password"});
+    }
 
-    const token = jwt.sign({id:user._id, role}, JWT_SECRET, {expiresIn:'7d'});
-    res.json({success:true, token, userId: user._id});
-  } catch(err) {
-    console.error(err);
-    res.status(500).json({success:false, message:"Server error"});
+    const token = jwt.sign(
+      {id:user._id,role:user.role},
+      process.env.JWT_SECRET,
+      {expiresIn:"7d"}
+    );
+
+    res.json({
+      success:true,
+      message:"Login success",
+      token,
+      userId:user._id
+    });
+
+  }catch(err){
+    res.status(500).json({success:false,message:"Server error"});
   }
 });
 
-// ===== GET USER PROFILE =====
-app.get('/api/me', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if(!token) return res.status(401).json({success:false,message:"No token provided"});
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    if(!user) return res.status(404).json({success:false,message:"User not found"});
-
-    res.json({success:true, user});
-  } catch(err) {
-    console.error(err);
-    res.status(401).json({success:false,message:"Invalid token"});
-  }
+/* ================= TEST ================= */
+app.get("/",(req,res)=>{
+  res.send("Sabka Sathi Backend Running ✅");
 });
 
-// ===== START SERVER =====
-app.listen(PORT, ()=>console.log(`Server running on port ${PORT} ✅`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT,()=>console.log("Server running on",PORT));
