@@ -282,8 +282,17 @@ app.get("/api/orders/retailer/:mobile", async(req,res)=>{
 });
 
 app.get("/api/orders/delivery/available", async(req,res)=>{
-  const o = await Order.find({status:"confirmed_by_wholesaler"}).sort({createdAt:-1});
-  res.json({success:true,orders:o});
+  const orders = await Order.find({
+    status: { 
+      $in: [
+        "confirmed_by_wholesaler",
+        "delivery_accepted",
+        "picked_up"
+      ]
+    }
+  }).sort({createdAt:-1});
+
+  res.json({success:true,orders});
 });
 
 /* ================= SOCKET.IO ================= */
