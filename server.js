@@ -173,7 +173,7 @@ app.post("/api/orders", async (req, res) => {
     });
 
     // Notify delivery boys
-    io.emit("new_order", order);
+    io.emit("newOrder", order);
 
     res.json({ success: true, order });
 
