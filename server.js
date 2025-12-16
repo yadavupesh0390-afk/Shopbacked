@@ -1,4 +1,4 @@
- require("dotenv").config();
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -25,20 +25,17 @@ const userSchema = new mongoose.Schema({
 
   alternate_mobile_optional:String,
   current_live_location:Object,
+
   vehicle:String,
   vehicle_model:String,
-  vehicle_number:String,
-
-  full_name:String,
-  official_mobile_number:String,
-  login_mobile:String
+  vehicle_number:String
 },{timestamps:true});
 
 const User = mongoose.model("User",userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
-  wholesalerId:String, // FULL MONGO ID
+  wholesalerId:String,
   productName:String,
   price:Number,
   detail:String,
@@ -64,6 +61,9 @@ const orderSchema = new mongoose.Schema({
   proofImg:String,
 
   deliveryBoyId:String,
+
+  deliveryCode:String,
+  deliveryCodeVerified:{ type:Boolean, default:false },
 
   status:{ type:String, default:"pending" },
   statusHistory:[{
@@ -124,13 +124,12 @@ app.post("/api/login", async(req,res)=>{
   res.json({success:true,token,userId:user._id});
 });
 
-/* ================= ADD PRODUCT ================= */
+/* ================= PRODUCTS ================= */
 app.post("/api/products", async(req,res)=>{
   const p = await Product.create(req.body);
   res.json({success:true,product:p});
 });
 
-/* ================= GET PRODUCTS (SHORT ID) ================= */
 app.get("/api/products/wholesaler/:shortId", async(req,res)=>{
   const sid = req.params.shortId.toLowerCase();
   const products = await Product.find({
@@ -162,26 +161,13 @@ app.post("/api/orders/:id/confirm", async(req,res)=>{
   res.json({success:true,order:o});
 });
 
-/* ================= ASSIGN DELIVERY ================= */
-app.post("/api/orders/:id/assign-delivery", async(req,res)=>{
+/* ================= DELIVERY ACCEPT ================= */
+app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
   const {deliveryBoyId} = req.body;
   const o = await Order.findByIdAndUpdate(
     req.params.id,
     {
       deliveryBoyId,
-      status:"assigned_to_delivery",
-      $push:{statusHistory:{status:"assigned_to_delivery",time:Date.now()}}
-    },
-    {new:true}
-  );
-  res.json({success:true,order:o});
-});
-
-/* ================= DELIVERY ACCEPT ================= */
-app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
       status:"delivery_accepted",
       $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
     },
@@ -190,30 +176,46 @@ app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
   res.json({success:true,order:o});
 });
 
-/* ================= PICKUP ================= */
+/* ================= PICKUP (AUTO CODE) ================= */
 app.post("/api/orders/:id/pickup", async(req,res)=>{
+  const code = Math.floor(100000 + Math.random()*900000).toString();
+
   const o = await Order.findByIdAndUpdate(
     req.params.id,
     {
+      deliveryCode:code,
       status:"picked_up",
       $push:{statusHistory:{status:"picked_up",time:Date.now()}}
     },
     {new:true}
   );
-  res.json({success:true,order:o});
+  res.json({success:true});
 });
 
-/* ================= DELIVERED ================= */
+/* ================= RETAILER GET CODE ================= */
+app.get("/api/orders/:id/delivery-code/:mobile", async(req,res)=>{
+  const o = await Order.findById(req.params.id);
+  if(!o || o.retailerMobile!==req.params.mobile)
+    return res.json({success:false});
+  res.json({success:true,code:o.deliveryCode});
+});
+
+/* ================= DELIVERED (VERIFY CODE) ================= */
 app.post("/api/orders/:id/delivered", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      status:"delivered",
-      $push:{statusHistory:{status:"delivered",time:Date.now()}}
-    },
-    {new:true}
-  );
-  res.json({success:true,order:o});
+  const {deliveryCode} = req.body;
+  const o = await Order.findById(req.params.id);
+
+  if(!o || o.deliveryCode!==deliveryCode)
+    return res.json({success:false,message:"Invalid code"});
+
+  o.status="delivered";
+  o.deliveryCodeVerified=true;
+  o.statusHistory.push({status:"delivered",time:Date.now()});
+  await o.save();
+
+  setTimeout(()=>Order.findByIdAndDelete(o._id),10*60*1000);
+
+  res.json({success:true});
 });
 
 /* ================= GET ORDERS ================= */
