@@ -76,7 +76,7 @@ const orderSchema = new mongoose.Schema({
   // Payment & Vehicle
   txnId: { type: String, required: true },
   proofImg: { type: String, required: true },
-  vehicleType: { type: String, enum: ["two", "three", "four"], required: true },
+  vehicleType: { type: String, enum: ["two_wheeler", "three_wheeler", "four_wheeler"], required: true }
 
   // Delivery Boy Info
   deliveryBoyId: { type: String, default: null },
@@ -164,17 +164,26 @@ app.get("/api/products/wholesaler/:shortId", async(req,res)=>{
 });
 
 /* ================= PLACE ORDER ================= */
-app.post("/api/orders", async(req,res)=>{
-  const order = await Order.create({
-    ...req.body,
-    status:"pending",
-    statusHistory:[{status:"pending",time:Date.now()}]
-  });
+app.post("/api/orders", async (req, res) => {
+  try {
+    const order = await Order.create({
+      ...req.body,
+      status: "pending",
+      statusHistory: [{ status: "pending", time: Date.now() }]
+    });
 
-  // Notify all delivery boys
-  io.emit("new_order", order);
+    // Notify delivery boys
+    io.emit("new_order", order);
 
-  res.json({success:true,order});
+    res.json({ success: true, order });
+
+  } catch (err) {
+    console.error("ORDER ERROR ❌", err.message);
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
 });
 
 /* ================= WHOLESALER CONFIRM ================= */
