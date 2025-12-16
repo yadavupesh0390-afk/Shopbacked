@@ -56,33 +56,46 @@ const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
-  wholesalerId:String,
-  productId:String,
-  productName:String,
-  price:Number,
-  productImg:String,
+  // Wholesaler Info
+  wholesalerId: { type: String, required: true },
+  wholesalerName: { type: String, required: true },
+  wholesalerMobile: { type: String, required: true },
+  wholesalerAddress: { type: String, required: true },
 
-  retailerName:String,
-  retailerMobile:String,
-  retailerAddress:String,
-  txnId:String,
-  proofImg:String,
+  // Product Info
+  productId: { type: String, required: true },
+  productName: { type: String, required: true },
+  price: { type: Number, required: true },
+  productImg: { type: String, required: true },
 
-  deliveryBoyId:String,
-  deliveryBoyName:String,
-  deliveryBoyMobile:String,
+  // Retailer Info
+  retailerName: { type: String, required: true },
+  retailerMobile: { type: String, required: true },
+  retailerAddress: { type: String, required: true },
 
-  vehicleType:String, // two / three / four wheeler
+  // Payment & Vehicle
+  txnId: { type: String, required: true },
+  proofImg: { type: String, required: true },
+  vehicleType: { type: String, enum: ["two", "three", "four"], required: true },
 
-  status:{ type:String, default:"pending" },
-  statusHistory:[{
-    status:String,
-    time:Number
+  // Delivery Boy Info
+  deliveryBoyId: { type: String, default: null },
+  deliveryBoyName: { type: String, default: null },
+  deliveryBoyMobile: { type: String, default: null },
+
+  // Order Status
+  status: { type: String, default: "pending" }, // pending, confirmed_by_wholesaler, assigned_to_delivery, delivery_accepted, picked_up, delivered
+  statusHistory: [{
+    status: String,
+    time: Number
   }],
-  deliveryCode:String
-},{timestamps:true});
 
-const Order = mongoose.model("Order",orderSchema);
+  // Auto Generated Delivery Code
+  deliveryCode: { type: String, default: null }
+
+}, { timestamps: true });
+
+const Order = mongoose.model("Order", orderSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async(req,res)=>{
