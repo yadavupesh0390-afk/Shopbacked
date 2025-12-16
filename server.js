@@ -76,7 +76,7 @@ const orderSchema = new mongoose.Schema({
   // Payment & Vehicle
   txnId: { type: String, required: true },
   proofImg: { type: String, required: true },
-  vehicleType: { type: String, enum: ["two_wheeler", "three_wheeler", "four_wheeler"], required: true }
+  vehicleType: { type: String, enum: ["two_wheeler", "three_wheeler", "four_wheeler"], required: true },
 
   // Delivery Boy Info
   deliveryBoyId: { type: String, default: null },
