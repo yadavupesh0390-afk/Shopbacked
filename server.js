@@ -26,14 +26,7 @@ const userSchema = new mongoose.Schema({
   mobile:String,
   password:String,
   shop_current_location:String,
-  alternate_mobile_optional:String,
-  current_live_location:Object,
   vehicle:String,
-  vehicle_model:String,
-  vehicle_number:String,
-  full_name:String,
-  official_mobile_number:String,
-  login_mobile:String
 },{timestamps:true});
 
 const User = mongoose.model("User",userSchema);
@@ -43,10 +36,7 @@ const productSchema = new mongoose.Schema({
   wholesalerId:String,
   productName:String,
   price:Number,
-  detail:String,
   image:String,
-  shopName:String,
-  mobile:String,
   address:String
 },{timestamps:true});
 
@@ -54,64 +44,46 @@ const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
-  deliveryCode: String,
-  deliveryCodeTime: Date,
+  deliveryCode:String,
+  deliveryCodeTime:Date,
 
-  wholesalerId: { type: String, required: true },
-  wholesalerName: { type: String, required: true },
-  wholesalerMobile: { type: String, required: true },
-  wholesalerAddress: { type: String, required: true },
+  wholesalerId:String,
+  wholesalerName:String,
+  wholesalerMobile:String,
+  wholesalerAddress:String,
 
-  productId: { type: String, required: true },
-  productName: { type: String, required: true },
-  price: { type: Number, required: true },
-  productImg: { type: String, required: true },
+  productId:String,
+  productName:String,
+  price:Number,
+  productImg:String,
 
-  retailerName: { type: String, required: true },
-  retailerMobile: { type: String, required: true },
-  retailerAddress: { type: String, required: true },
+  retailerName:String,
+  retailerMobile:String,
+  retailerAddress:String,
 
-  txnId: { type: String, required: true },
-  proofImg: { type: String, required: true },
-  vehicleType: { type: String, enum: ["two_wheeler", "three_wheeler", "four_wheeler"], required: true },
+  vehicleType:String,
 
-  deliveryBoyId: { type: String, default: null },
-  deliveryBoyName: { type: String, default: null },
-  deliveryBoyMobile: { type: String, default: null },
+  deliveryBoyId:String,
+  deliveryBoyName:String,
+  deliveryBoyMobile:String,
 
-  status: { type: String, default: "pending" },
-  statusHistory: [{
-    status: String,
-    time: Number
-  }]
-},{ timestamps: true });
+  status:{ type:String, default:"pending" },
+  statusHistory:[{ status:String, time:Number }]
+},{timestamps:true});
 
-const Order = mongoose.model("Order", orderSchema);
+const Order = mongoose.model("Order",orderSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async(req,res)=>{
-  try{
-    const { role, password } = req.body;
-    const mobile = req.body.mobile || req.body.upi_mobile_number || req.body.login_mobile;
+  const {role,mobile,password} = req.body;
+  if(!role || !mobile || !password) return res.json({success:false});
 
-    if(!role || !password || !mobile)
-      return res.json({success:false,message:"Missing fields"});
-
-    const exists = await User.findOne({mobile,role});
-    if(exists) return res.json({success:false,message:"User exists"});
-
-    const hashed = await bcrypt.hash(password,10);
-    const user = await User.create({...req.body,mobile,password:hashed});
-
-    const token = jwt.sign({id:user._id,role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
-    res.json({success:true,token,userId:user._id});
-  }catch(err){
-    console.log(err);
-    res.status(500).json({success:false});
-  }
+  const hashed = await bcrypt.hash(password,10);
+  const user = await User.create({...req.body,password:hashed});
+  const token = jwt.sign({id:user._id,role},process.env.JWT_SECRET);
+  res.json({success:true,token,userId:user._id});
 });
 
-/* ================= LOGIN ================= */
 app.post("/api/login", async(req,res)=>{
   const {mobile,password,role} = req.body;
   const user = await User.findOne({mobile,role});
@@ -120,135 +92,115 @@ app.post("/api/login", async(req,res)=>{
   const ok = await bcrypt.compare(password,user.password);
   if(!ok) return res.json({success:false});
 
-  const token = jwt.sign({id:user._id,role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
+  const token = jwt.sign({id:user._id,role},process.env.JWT_SECRET);
   res.json({success:true,token,userId:user._id});
 });
 
-/* ================= ADD PRODUCT ================= */
-app.post("/api/products", async(req,res)=>{
-  const p = await Product.create(req.body);
-  res.json({success:true,product:p});
-});
-
-/* ================= GET PRODUCTS ================= */
-app.get("/api/products/wholesaler/:shortId", async(req,res)=>{
-  const sid = req.params.shortId.toLowerCase();
-  const products = await Product.find({wholesalerId:{ $regex:"^"+sid, $options:"i" }});
-  res.json({success:true,products});
-});
-
-/* ================= PLACE ORDER ================= */
+/* ================= ORDERS ================= */
 app.post("/api/orders", async(req,res)=>{
-  try{
-    const order = await Order.create({...req.body, status:"pending", statusHistory:[{status:"pending",time:Date.now()}]});
-    io.emit("newOrder", order);
-    res.json({success:true,order});
-  }catch(err){
-    console.error("ORDER ERROR ❌", err.message);
-    res.status(400).json({success:false,message:err.message});
-  }
+  const order = await Order.create({
+    ...req.body,
+    status:"pending",
+    statusHistory:[{status:"pending",time:Date.now()}]
+  });
+  io.emit("new_order",order);
+  res.json({success:true,order});
 });
 
-/* ================= WHOLESALER CONFIRM ================= */
 app.post("/api/orders/:id/confirm", async(req,res)=>{
   const o = await Order.findByIdAndUpdate(req.params.id,{
     status:"confirmed_by_wholesaler",
     $push:{statusHistory:{status:"confirmed_by_wholesaler",time:Date.now()}}
   },{new:true});
-
-  io.emit("order_confirmed", o);
-  res.json({success:true,order:o});
+  res.json({success:true});
 });
 
-/* ================= ASSIGN DELIVERY ================= */
-app.post("/api/orders/:id/assign-delivery", async(req,res)=>{
-  const {deliveryBoyId, deliveryBoyName, deliveryBoyMobile} = req.body;
-  const deliveryCode = Math.floor(100000 + Math.random()*900000).toString();
-
-  const o = await Order.findByIdAndUpdate(req.params.id,{
-    deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-    deliveryCode,
-    status:"assigned_to_delivery",
-    $push:{statusHistory:{status:"assigned_to_delivery",time:Date.now()}}
-  },{new:true});
-
-  io.emit("delivery_assigned", o);
-  res.json({success:true,order:o});
-});
-
-/* ================= DELIVERY ACCEPT ================= */
 app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
-  const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-
-  const order = await Order.findOneAndUpdate(
-    { _id:req.params.id, status:"confirmed_by_wholesaler" },
-    {
-      deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-      status:"delivery_accepted",
-      $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-    },
-    { new:true }
-  );
-
-  if(!order) return res.json({success:false,message:"Already accepted"});
-  io.emit("delivery_assigned_to_retailer", order);
-  res.json({success:true,order});
+  const {deliveryBoyId,deliveryBoyName,deliveryBoyMobile} = req.body;
+  const o = await Order.findByIdAndUpdate(req.params.id,{
+    deliveryBoyId,deliveryBoyName,deliveryBoyMobile,
+    status:"delivery_accepted",
+    $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
+  },{new:true});
+  res.json({success:true});
 });
 
-/* ================= PICKUP ================= */
 app.post("/api/orders/:id/pickup", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(req.params.id,{
+  await Order.findByIdAndUpdate(req.params.id,{
     status:"picked_up",
     $push:{statusHistory:{status:"picked_up",time:Date.now()}}
-  },{new:true});
-
-  io.emit("order_picked", o);
-  res.json({success:true,order:o});
+  });
+  res.json({success:true});
 });
 
-/* ================= DELIVERED ================= */
-app.post("/api/orders/:id/delivered", async(req,res)=>{
-  const {deliveryCode} = req.body;
+
+
+/* =====================================================
+   ✅ FINAL DELIVERY CODE FLOW (FIXED)
+===================================================== */
+
+/* 🔐 1st CLICK → GENERATE CODE (ONLY ONCE) */
+app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   const order = await Order.findById(req.params.id);
+  if(!order) return res.json({success:false});
 
-  if(order.deliveryCode !== deliveryCode)
-    return res.json({success:false,message:"Invalid delivery code"});
+  if(order.deliveryCode){
+    return res.json({success:true,already:true});
+  }
 
-  order.status = "delivered";
-  order.statusHistory.push({status:"delivered",time:Date.now()});
+  const code = Math.floor(100000 + Math.random()*900000).toString();
+
+  order.deliveryCode = code;
+  order.deliveryCodeTime = new Date();
+  order.status = "delivery_code_generated";
+  order.statusHistory.push({
+    status:"delivery_code_generated",
+    time:Date.now()
+  });
+
   await order.save();
 
-  io.emit("order_delivered", order);
-  res.json({success:true,order});
+  io.emit("delivery_code_generated",order);
+  res.json({success:true});
+});
+
+/* 🔓 2nd CLICK → POPUP → VERIFY CODE */
+app.post("/api/orders/verify-delivery-code/:id", async(req,res)=>{
+  const {code} = req.body;
+  const order = await Order.findById(req.params.id);
+  if(!order) return res.json({success:false});
+
+  if(order.deliveryCode !== code){
+    return res.json({success:false});
+  }
+
+  order.status = "delivered";
+  order.statusHistory.push({
+    status:"delivered",
+    time:Date.now()
+  });
+  await order.save();
+
+  io.emit("order_delivered",order);
+  res.json({success:true});
 });
 
 /* ================= GET ORDERS ================= */
-app.get("/api/orders/wholesaler/:wid", async(req,res)=>{
-  const o = await Order.find({wholesalerId:req.params.wid}).sort({createdAt:-1});
-  res.json({success:true,orders:o});
-});
-
 app.get("/api/orders/retailer/:mobile", async(req,res)=>{
   const o = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
   res.json({success:true,orders:o});
 });
 
-app.get("/api/orders/delivery/:deliveryBoyId", async(req,res)=>{
-  const orders = await Order.find({
+app.get("/api/orders/delivery/:id", async(req,res)=>{
+  const o = await Order.find({
     $or:[
-      { status:"confirmed_by_wholesaler", deliveryBoyId:null },
-      { deliveryBoyId:req.params.deliveryBoyId }
+      {status:"confirmed_by_wholesaler"},
+      {deliveryBoyId:req.params.id}
     ]
   }).sort({createdAt:-1});
-  res.json({success:true,orders});
-});
-
-/* ================= SOCKET.IO ================= */
-io.on("connection", socket=>{
-  console.log("New client connected:", socket.id);
-  socket.on("disconnect", ()=>console.log("Client disconnected:", socket.id));
+  res.json({success:true,orders:o});
 });
 
 /* ================= SERVER ================= */
 const PORT = process.env.PORT || 5000;
-server.listen(PORT,()=>console.log("Server running on port",PORT));
+server.listen(PORT,()=>console.log("Server running on",PORT));
