@@ -300,18 +300,17 @@ app.get("/api/orders/retailer/:mobile", async(req,res)=>{
   res.json({success:true,orders:o});
 });
 
-app.get("/api/orders/delivery/available", async(req,res)=>{
+app.get("/api/orders/delivery/:deliveryBoyId", async(req,res)=>{
+  const { deliveryBoyId } = req.params;
+
   const orders = await Order.find({
-    status: { 
-      $in: [
-        "confirmed_by_wholesaler",
-        "delivery_accepted",
-        "picked_up"
-      ]
-    }
+    $or:[
+      { status:"confirmed_by_wholesaler", deliveryBoyId: null },
+      { deliveryBoyId }
+    ]
   }).sort({createdAt:-1});
 
-  res.json({success:true,orders});
+  res.json({ success:true, orders });
 });
 
 /* ================= SOCKET.IO ================= */
