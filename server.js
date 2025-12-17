@@ -227,17 +227,36 @@ app.post("/api/orders/:id/assign-delivery", async(req,res)=>{
 
 /* ================= DELIVERY ACCEPT ================= */
 app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
+  const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+
+  const order = await Order.findOneAndUpdate(
     {
-      status:"delivery_accepted",
-      $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
+      _id: req.params.id,
+      status: "confirmed_by_wholesaler" // ⚠️ only once
     },
-    {new:true}
+    {
+      deliveryBoyId,
+      deliveryBoyName,
+      deliveryBoyMobile,
+      status: "delivery_accepted",
+      $push:{
+        statusHistory:{
+          status:"delivery_accepted",
+          time:Date.now()
+        }
+      }
+    },
+    { new:true }
   );
 
-  io.emit("delivery_accepted", o);
-  res.json({success:true,order:o});
+  if(!order){
+    return res.json({success:false,message:"Already accepted"});
+  }
+
+  // 🔔 Retailer ko notify
+  io.emit("delivery_assigned_to_retailer", order);
+
+  res.json({success:true,order});
 });
 
 /* ================= PICKUP ================= */
