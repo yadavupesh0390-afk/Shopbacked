@@ -56,6 +56,9 @@ const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
+  deliveryCode: String,
+  deliveryCodeTime: Date,
+  
   // Wholesaler Info
   wholesalerId: { type: String, required: true },
   wholesalerName: { type: String, required: true },
