@@ -11,8 +11,8 @@ app.use(express.json({ limit: "10mb" }));
 
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
-.then(()=>console.log("MongoDB connected ✅"))
-.catch(err=>console.log("Mongo error ❌",err));
+.then(()=>console.log("MongoDB connected"))
+.catch(err=>console.log("Mongo error",err));
 
 /* ================= USER ================= */
 const userSchema = new mongoose.Schema({
@@ -20,15 +20,19 @@ const userSchema = new mongoose.Schema({
   name:String,
   mobile:String,
   password:String,
+
   shop_current_location:String,
-  vehicle:String
+
+  vehicle:String,
+  vehicle_model:String,
+  vehicle_number:String
 },{timestamps:true});
 
 const User = mongoose.model("User",userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
-  wholesalerId:String,   // ✅ FULL MONGO ID
+  wholesalerId:String,          // FULL Mongo _id
   productName:String,
   price:Number,
   detail:String,
@@ -42,7 +46,10 @@ const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
-  wholesalerId:String,   // ✅ FULL MONGO ID
+  deliveryCode:String,
+  deliveryCodeTime:Date,
+
+  wholesalerId:String,
   wholesalerName:String,
   wholesalerMobile:String,
   wholesalerAddress:String,
@@ -62,9 +69,6 @@ const orderSchema = new mongoose.Schema({
   deliveryBoyName:String,
   deliveryBoyMobile:String,
 
-  deliveryCode:String,
-  deliveryCodeTime:Date,
-
   status:{ type:String, default:"pending" },
   statusHistory:[{ status:String, time:Number }]
 },{timestamps:true});
@@ -73,23 +77,27 @@ const Order = mongoose.model("Order",orderSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async(req,res)=>{
-  const {role,mobile,password} = req.body;
-  if(!role || !mobile || !password)
-    return res.json({success:false});
+  try{
+    const {role,mobile,password} = req.body;
+    if(!role || !mobile || !password)
+      return res.json({success:false,message:"Missing fields"});
 
-  const exists = await User.findOne({mobile,role});
-  if(exists) return res.json({success:false});
+    const exists = await User.findOne({mobile,role});
+    if(exists) return res.json({success:false,message:"User exists"});
 
-  const hashed = await bcrypt.hash(password,10);
-  const user = await User.create({...req.body,password:hashed});
+    const hashed = await bcrypt.hash(password,10);
+    const user = await User.create({...req.body,password:hashed});
 
-  const token = jwt.sign(
-    {id:user._id,role:user.role},
-    process.env.JWT_SECRET,
-    {expiresIn:"7d"}
-  );
+    const token = jwt.sign(
+      {id:user._id,role:user.role},
+      process.env.JWT_SECRET,
+      {expiresIn:"7d"}
+    );
 
-  res.json({success:true,token,userId:user._id});
+    res.json({success:true,token,userId:user._id});
+  }catch(e){
+    res.status(500).json({success:false});
+  }
 });
 
 app.post("/api/login", async(req,res)=>{
@@ -110,23 +118,23 @@ app.post("/api/login", async(req,res)=>{
 });
 
 /* ================= PRODUCTS ================= */
-
-/* ➕ ADD PRODUCT */
 app.post("/api/products", async(req,res)=>{
   const p = await Product.create(req.body);
   res.json({success:true,product:p});
 });
 
-/* 📦 GET PRODUCTS (WHOLESALER DASHBOARD) */
-app.get("/api/products/wholesaler/:wid", async(req,res)=>{
-  const products = await Product.find({wholesalerId:req.params.wid})
-                                .sort({createdAt:-1});
+/* 🔥 FIXED: FULL + SHORT WHOLESALER ID SEARCH */
+app.get("/api/products/wholesaler/:id", async(req,res)=>{
+  const id = req.params.id.toLowerCase();
+
+  const products = await Product.find({
+    wholesalerId: { $regex: "^" + id }
+  }).sort({createdAt:-1});
+
   res.json({success:true,products});
 });
 
 /* ================= ORDERS ================= */
-
-/* 🛒 PLACE ORDER */
 app.post("/api/orders", async(req,res)=>{
   const order = await Order.create({
     ...req.body,
@@ -136,50 +144,33 @@ app.post("/api/orders", async(req,res)=>{
   res.json({success:true,order});
 });
 
-/* ✅ WHOLESALER CONFIRM */
 app.post("/api/orders/:id/confirm", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      status:"confirmed_by_wholesaler",
-      $push:{statusHistory:{status:"confirmed_by_wholesaler",time:Date.now()}}
-    },
-    {new:true}
-  );
-  res.json({success:true,order:o});
+  await Order.findByIdAndUpdate(req.params.id,{
+    status:"confirmed_by_wholesaler",
+    $push:{statusHistory:{status:"confirmed_by_wholesaler",time:Date.now()}}
+  });
+  res.json({success:true});
 });
 
-/* 🚚 DELIVERY ACCEPT */
 app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
   const {deliveryBoyId,deliveryBoyName,deliveryBoyMobile} = req.body;
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      deliveryBoyId,
-      deliveryBoyName,
-      deliveryBoyMobile,
-      status:"delivery_accepted",
-      $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-    },
-    {new:true}
-  );
-  res.json({success:true,order:o});
+  await Order.findByIdAndUpdate(req.params.id,{
+    deliveryBoyId,deliveryBoyName,deliveryBoyMobile,
+    status:"delivery_accepted",
+    $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
+  });
+  res.json({success:true});
 });
 
-/* 📦 PICKUP */
 app.post("/api/orders/:id/pickup", async(req,res)=>{
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      status:"picked_up",
-      $push:{statusHistory:{status:"picked_up",time:Date.now()}}
-    },
-    {new:true}
-  );
-  res.json({success:true,order:o});
+  await Order.findByIdAndUpdate(req.params.id,{
+    status:"picked_up",
+    $push:{statusHistory:{status:"picked_up",time:Date.now()}}
+  });
+  res.json({success:true});
 });
 
-/* 🔐 GENERATE DELIVERY CODE (ONE TIME) */
+/* ================= DELIVERY CODE FLOW ================= */
 app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   const order = await Order.findById(req.params.id);
   if(!order) return res.json({success:false});
@@ -187,7 +178,7 @@ app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   if(order.deliveryCode)
     return res.json({success:true,already:true});
 
-  order.deliveryCode = Math.floor(100000 + Math.random()*900000).toString();
+  order.deliveryCode = Math.floor(100000+Math.random()*900000).toString();
   order.deliveryCodeTime = new Date();
   order.status = "delivery_code_generated";
   order.statusHistory.push({
@@ -199,7 +190,6 @@ app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   res.json({success:true});
 });
 
-/* 🔓 VERIFY DELIVERY CODE */
 app.post("/api/orders/verify-delivery-code/:id", async(req,res)=>{
   const {code} = req.body;
   const order = await Order.findById(req.params.id);
@@ -209,32 +199,23 @@ app.post("/api/orders/verify-delivery-code/:id", async(req,res)=>{
     return res.json({success:false});
 
   order.status = "delivered";
-  order.statusHistory.push({
-    status:"delivered",
-    time:Date.now()
-  });
+  order.statusHistory.push({status:"delivered",time:Date.now()});
   await order.save();
 
   res.json({success:true});
 });
 
-/* 📄 GET ORDERS */
-
-/* WHOLESALER */
+/* ================= GET ORDERS ================= */
 app.get("/api/orders/wholesaler/:wid", async(req,res)=>{
-  const o = await Order.find({wholesalerId:req.params.wid})
-                       .sort({createdAt:-1});
+  const o = await Order.find({wholesalerId:req.params.wid}).sort({createdAt:-1});
   res.json({success:true,orders:o});
 });
 
-/* RETAILER */
 app.get("/api/orders/retailer/:mobile", async(req,res)=>{
-  const o = await Order.find({retailerMobile:req.params.mobile})
-                       .sort({createdAt:-1});
+  const o = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
   res.json({success:true,orders:o});
 });
 
-/* DELIVERY */
 app.get("/api/orders/delivery/:id", async(req,res)=>{
   const o = await Order.find({
     $or:[
