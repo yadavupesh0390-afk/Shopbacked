@@ -32,7 +32,6 @@ const userSchema = new mongoose.Schema({
   vehicle_model:String,
   vehicle_number:String
 },{timestamps:true});
-
 const User = mongoose.model("User",userSchema);
 
 /* ================= PRODUCT ================= */
@@ -46,87 +45,61 @@ const productSchema = new mongoose.Schema({
   mobile:String,
   address:String
 },{timestamps:true});
-
 const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
   paymentOrderId:String,
   paymentId:String,
-
   deliveryCode:String,
   deliveryCodeTime:Date,
-
   wholesalerId:String,
   wholesalerName:String,
   wholesalerMobile:String,
   wholesalerAddress:String,
-
   productId:String,
   productName:String,
   price:Number,
+  deliveryCharge:Number,
+  totalAmount:Number,
   productImg:String,
-
   retailerName:String,
   retailerMobile:String,
   retailerAddress:String,
-
   vehicleType:String,
-
   deliveryBoyId:String,
   deliveryBoyName:String,
   deliveryBoyMobile:String,
-
   status:{ type:String, default:"pending" },
   statusHistory:[{ status:String, time:Number }]
 },{timestamps:true});
-
 const Order = mongoose.model("Order",orderSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async(req,res)=>{
-  try{
-    const {role,mobile,password} = req.body;
-    if(!role || !mobile || !password)
-      return res.json({success:false,message:"Missing fields"});
+  const {role,mobile,password} = req.body;
+  if(!role || !mobile || !password) return res.json({success:false});
 
-    const exists = await User.findOne({mobile,role});
-    if(exists) return res.json({success:false,message:"User exists"});
+  const exists = await User.findOne({mobile,role});
+  if(exists) return res.json({success:false});
 
-    const hashed = await bcrypt.hash(password,10);
-    const user = await User.create({...req.body,password:hashed});
+  const hashed = await bcrypt.hash(password,10);
+  const user = await User.create({...req.body,password:hashed});
 
-    const token = jwt.sign(
-      {id:user._id,role:user.role},
-      process.env.JWT_SECRET,
-      {expiresIn:"7d"}
-    );
-
-    res.json({success:true,token,userId:user._id});
-  }catch(e){
-    res.status(500).json({success:false,message:e.message});
-  }
+  const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET,{expiresIn:"7d"});
+  res.json({success:true,token,userId:user._id});
 });
 
 app.post("/api/login", async(req,res)=>{
-  try{
-    const {mobile,password,role} = req.body;
-    const user = await User.findOne({mobile,role});
-    if(!user) return res.json({success:false,message:"Invalid credentials"});
+  const {mobile,password,role} = req.body;
+  const user = await User.findOne({mobile,role});
+  if(!user) return res.json({success:false});
 
-    const ok = await bcrypt.compare(password,user.password);
-    if(!ok) return res.json({success:false,message:"Invalid credentials"});
+  const ok = await bcrypt.compare(password,user.password);
+  if(!ok) return res.json({success:false});
 
-    const token = jwt.sign(
-      {id:user._id,role:user.role},
-      process.env.JWT_SECRET,
-      {expiresIn:"7d"}
-    );
-
-    res.json({success:true,token,userId:user._id});
-  }catch(e){
-    res.status(500).json({success:false,message:e.message});
-  }
+  const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET,{expiresIn:"7d"});
+  res.json({success:true,token,userId:user._id});
 });
 
 /* ================= PRODUCTS ================= */
@@ -141,36 +114,48 @@ app.get("/api/products/wholesaler/:id", async(req,res)=>{
   res.json({success:true,products});
 });
 
-/* ================= PAYMENT + ORDER ================= */
+/* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async(req,res)=>{
   try{
-    const { productId, retailerName, retailerMobile, retailerAddress, vehicleType } = req.body;
+    const { amount } = req.body;
+    const order = await razorpay.orders.create({amount: amount*100, currency:"INR", receipt:"rcpt_"+Date.now()});
+    res.json({success:true,order, key:process.env.RAZORPAY_KEY_ID});
+  }catch(err){
+    console.log(err);
+    res.status(500).json({success:false});
+  }
+});
+
+/* ================= ORDER CONFIRM AFTER PAYMENT ================= */
+app.post("/api/orders/confirm-after-payment", async(req,res)=>{
+  try{
+    const {
+      productId,vehicleType,paymentId,
+      retailerName,retailerMobile,retailerAddress,
+      wholesalerId,wholesalerName,wholesalerMobile,wholesalerAddress
+    } = req.body;
 
     const product = await Product.findById(productId);
-    if(!product) return res.json({success:false,message:"Product not found"});
+    if(!product) return res.json({success:false});
 
-    // Razorpay order create
-    const razorpayOrder = await razorpay.orders.create({
-      amount: product.price*100,
-      currency:"INR",
-      receipt:"rcpt_"+Date.now()
-    });
+    let deliveryCharge = 0;
+    switch(vehicleType){
+      case "two_wheeler": deliveryCharge=20; break;
+      case "three_wheeler": deliveryCharge=50; break;
+      case "four_wheeler": deliveryCharge=80; break;
+    }
 
-    // Order create in DB - auto confirmed
+    const totalAmount = product.price + deliveryCharge;
+
     const order = await Order.create({
-      paymentOrderId: razorpayOrder.id,
-      wholesalerId: product.wholesalerId,
-      wholesalerName: product.shopName,
-      wholesalerMobile: product.mobile,
-      wholesalerAddress: product.address,
-      productId: product._id,
-      productName: product.productName,
+      productId, vehicleType, paymentId,
+      retailerName, retailerMobile, retailerAddress,
+      wholesalerId, wholesalerName, wholesalerMobile, wholesalerAddress,
       price: product.price,
+      deliveryCharge,
+      totalAmount,
+      productName: product.productName,
       productImg: product.image,
-      retailerName,
-      retailerMobile,
-      retailerAddress,
-      vehicleType,
       status:"confirmed_by_wholesaler",
       statusHistory:[
         {status:"paid",time:Date.now()},
@@ -178,11 +163,8 @@ app.post("/api/orders/pay-and-create", async(req,res)=>{
       ]
     });
 
-    res.json({success:true,order,razorpayOrder,key:process.env.RAZORPAY_KEY_ID});
-  }catch(e){
-    console.log(e);
-    res.status(500).json({success:false,message:e.message});
-  }
+    res.json({success:true,order});
+  }catch(err){ console.log(err); res.json({success:false}); }
 });
 
 /* ================= DELIVERY FLOW ================= */
@@ -204,7 +186,6 @@ app.post("/api/orders/:id/pickup", async(req,res)=>{
   res.json({success:true});
 });
 
-/* ================= DELIVERY OTP ================= */
 app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   const order = await Order.findById(req.params.id);
   if(!order) return res.json({success:false});
@@ -212,20 +193,21 @@ app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
 
   order.deliveryCode = Math.floor(100000+Math.random()*900000).toString();
   order.deliveryCodeTime = new Date();
+  order.status = "delivery_code_generated";
+  order.statusHistory.push({status:"delivery_code_generated",time:Date.now()});
   await order.save();
-  res.json({success:true,deliveryCode:order.deliveryCode});
+  res.json({success:true});
 });
 
 app.post("/api/orders/verify-delivery-code/:id", async(req,res)=>{
   const {code} = req.body;
   const order = await Order.findById(req.params.id);
   if(!order) return res.json({success:false});
-  if(order.deliveryCode !== code) return res.json({success:false});
+  if(order.deliveryCode!==code) return res.json({success:false});
 
-  order.status = "delivered";
+  order.status="delivered";
   order.statusHistory.push({status:"delivered",time:Date.now()});
   await order.save();
-
   res.json({success:true});
 });
 
@@ -234,12 +216,10 @@ app.get("/api/orders/wholesaler/:wid", async(req,res)=>{
   const o = await Order.find({wholesalerId:req.params.wid}).sort({createdAt:-1});
   res.json({success:true,orders:o});
 });
-
 app.get("/api/orders/retailer/:mobile", async(req,res)=>{
   const o = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
   res.json({success:true,orders:o});
 });
-
 app.get("/api/orders/delivery/:id", async(req,res)=>{
   const o = await Order.find({
     $or:[
