@@ -140,7 +140,7 @@ app.post("/api/orders/confirm-after-payment", async(req,res)=>{
 
     let deliveryCharge = 0;
     switch(vehicleType){
-      case "two_wheeler": deliveryCharge=20; break;
+      case "two_wheeler": deliveryCharge=1; break;
       case "three_wheeler": deliveryCharge=50; break;
       case "four_wheeler": deliveryCharge=80; break;
     }
