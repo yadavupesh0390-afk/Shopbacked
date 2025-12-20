@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,12 @@ app.use(express.json({ limit: "10mb" }));
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>console.log("MongoDB connected"))
 .catch(err=>console.log("Mongo error",err));
+
+/* ================= RAZORPAY ================= */
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 /* ================= USER ================= */
 const userSchema = new mongoose.Schema({
@@ -32,7 +39,7 @@ const User = mongoose.model("User",userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
-  wholesalerId:String,          // FULL Mongo _id
+  wholesalerId:String,
   productName:String,
   price:Number,
   detail:String,
@@ -46,6 +53,9 @@ const Product = mongoose.model("Product",productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
+  paymentOrderId:String,
+  paymentId:String,
+
   deliveryCode:String,
   deliveryCodeTime:Date,
 
@@ -77,27 +87,23 @@ const Order = mongoose.model("Order",orderSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async(req,res)=>{
-  try{
-    const {role,mobile,password} = req.body;
-    if(!role || !mobile || !password)
-      return res.json({success:false,message:"Missing fields"});
+  const {role,mobile,password} = req.body;
+  if(!role || !mobile || !password)
+    return res.json({success:false});
 
-    const exists = await User.findOne({mobile,role});
-    if(exists) return res.json({success:false,message:"User exists"});
+  const exists = await User.findOne({mobile,role});
+  if(exists) return res.json({success:false});
 
-    const hashed = await bcrypt.hash(password,10);
-    const user = await User.create({...req.body,password:hashed});
+  const hashed = await bcrypt.hash(password,10);
+  const user = await User.create({...req.body,password:hashed});
 
-    const token = jwt.sign(
-      {id:user._id,role:user.role},
-      process.env.JWT_SECRET,
-      {expiresIn:"7d"}
-    );
+  const token = jwt.sign(
+    {id:user._id,role:user.role},
+    process.env.JWT_SECRET,
+    {expiresIn:"7d"}
+  );
 
-    res.json({success:true,token,userId:user._id});
-  }catch(e){
-    res.status(500).json({success:false});
-  }
+  res.json({success:true,token,userId:user._id});
 });
 
 app.post("/api/login", async(req,res)=>{
@@ -123,35 +129,49 @@ app.post("/api/products", async(req,res)=>{
   res.json({success:true,product:p});
 });
 
-/* 🔥 FIXED: FULL + SHORT WHOLESALER ID SEARCH */
 app.get("/api/products/wholesaler/:id", async(req,res)=>{
   const id = req.params.id.toLowerCase();
-
   const products = await Product.find({
-    wholesalerId: { $regex: "^" + id }
+    wholesalerId:{ $regex:"^"+id }
   }).sort({createdAt:-1});
 
   res.json({success:true,products});
 });
 
+/* ================= PAYMENT ================= */
+/* 🔥 Retailer clicks PAY */
+app.post("/api/payment/create-order", async(req,res)=>{
+  try{
+    const { amount } = req.body;
+
+    const order = await razorpay.orders.create({
+      amount: amount * 100, // paise
+      currency: "INR",
+      receipt: "rcpt_"+Date.now()
+    });
+
+    res.json({success:true,order});
+  }catch(err){
+    console.log(err);
+    res.status(500).json({success:false});
+  }
+});
+
 /* ================= ORDERS ================= */
+/* ✅ Auto-confirm after payment */
 app.post("/api/orders", async(req,res)=>{
   const order = await Order.create({
     ...req.body,
-    status:"pending",
-    statusHistory:[{status:"pending",time:Date.now()}]
+    status:"confirmed_by_wholesaler",
+    statusHistory:[
+      {status:"paid",time:Date.now()},
+      {status:"confirmed_by_wholesaler",time:Date.now()}
+    ]
   });
   res.json({success:true,order});
 });
 
-app.post("/api/orders/:id/confirm", async(req,res)=>{
-  await Order.findByIdAndUpdate(req.params.id,{
-    status:"confirmed_by_wholesaler",
-    $push:{statusHistory:{status:"confirmed_by_wholesaler",time:Date.now()}}
-  });
-  res.json({success:true});
-});
-
+/* ================= DELIVERY FLOW ================= */
 app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
   const {deliveryBoyId,deliveryBoyName,deliveryBoyMobile} = req.body;
   await Order.findByIdAndUpdate(req.params.id,{
@@ -170,7 +190,7 @@ app.post("/api/orders/:id/pickup", async(req,res)=>{
   res.json({success:true});
 });
 
-/* ================= DELIVERY CODE FLOW ================= */
+/* ================= DELIVERY OTP ================= */
 app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
   const order = await Order.findById(req.params.id);
   if(!order) return res.json({success:false});
