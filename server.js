@@ -154,6 +154,72 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
   }
 });
 
+app.post("/api/wholesalers/saveProfile", async (req, res) => {
+  try {
+    const { wholesalerId, shopName, mobile, address } = req.body;
+
+    if (!wholesalerId || !mobile) {
+      return res.status(400).json({
+        success: false,
+        msg: "Missing wholesalerId or mobile"
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      wholesalerId,
+      {
+        name: shopName,
+        mobile: mobile,
+        shop_current_location: address
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.json({ success: false, msg: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location
+      }
+    });
+
+  } catch (err) {
+    console.error("SAVE PROFILE ERROR:", err);
+    res.status(500).json({ success: false, msg: "Server error" });
+  }
+});
+
+
+app.get("/api/wholesalers/profile/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.json({ success: false });
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location
+      }
+    });
+
+  } catch (err) {
+    console.error("GET PROFILE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
 /* ================= PAYMENT CREATE ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
   try {
