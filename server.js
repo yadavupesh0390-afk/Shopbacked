@@ -23,7 +23,7 @@ const razorpay = new Razorpay({
 
 /* ================= USER ================= */
 const userSchema = new mongoose.Schema({
-  role: String,
+  role: String,                 // retailer | wholesaler | delivery
   name: String,
   mobile: String,
   password: String,
@@ -48,6 +48,14 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
+
+/* ================= CART ================= */
+const cartSchema = new mongoose.Schema({
+  retailerId: String,
+  items: Array
+}, { timestamps: true });
+
+const Cart = mongoose.model("Cart", cartSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
@@ -90,7 +98,8 @@ const Order = mongoose.model("Order", orderSchema);
 app.post("/api/signup", async (req, res) => {
   try {
     const { role, mobile, password } = req.body;
-    if (!role || !mobile || !password) return res.json({ success: false });
+    if (!role || !mobile || !password)
+      return res.json({ success: false });
 
     const exists = await User.findOne({ mobile, role });
     if (exists) return res.json({ success: false });
@@ -112,6 +121,7 @@ app.post("/api/signup", async (req, res) => {
 
 app.post("/api/login", async (req, res) => {
   const { mobile, password, role } = req.body;
+
   const user = await User.findOne({ mobile, role });
   if (!user) return res.json({ success: false });
 
@@ -127,9 +137,52 @@ app.post("/api/login", async (req, res) => {
   res.json({ success: true, token, userId: user._id });
 });
 
+/* ================= WHOLESALER PROFILE ================= */
+app.post("/api/wholesalers/saveProfile", async (req, res) => {
+  try {
+    const { wholesalerId, shopName, mobile, address } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      wholesalerId,
+      {
+        name: shopName,
+        mobile,
+        shop_current_location: address
+      },
+      { new: true }
+    );
+
+    if (!user) return res.json({ success: false });
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location
+      }
+    });
+  } catch {
+    res.status(500).json({ success: false });
+  }
+});
+
+app.get("/api/wholesalers/profile/:id", async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.json({ success: false });
+
+  res.json({
+    success: true,
+    profile: {
+      shopName: user.name,
+      mobile: user.mobile,
+      address: user.shop_current_location
+    }
+  });
+});
+
 /* ================= PRODUCTS ================= */
 app.post("/api/products", async (req, res) => {
-  // wholesalerId ko lowercase me save karna (best practice)
   const body = {
     ...req.body,
     wholesalerId: req.body.wholesalerId.toLowerCase()
@@ -138,109 +191,49 @@ app.post("/api/products", async (req, res) => {
   res.json({ success: true, product: p });
 });
 
-/* 🔥 FIXED WHOLESALER SEARCH */
 app.get("/api/products/wholesaler/:id", async (req, res) => {
-  try {
-    const id = req.params.id.trim();
+  const id = req.params.id.trim();
+  const products = await Product.find({
+    wholesalerId: { $regex: "^" + id, $options: "i" }
+  }).sort({ createdAt: -1 });
 
-    const products = await Product.find({
-      wholesalerId: { $regex: "^" + id, $options: "i" } // case-insensitive
-    }).sort({ createdAt: -1 });
-
-    res.json({ success: true, products });
-  } catch (err) {
-    console.log(err);
-    res.json({ success: false });
-  }
+  res.json({ success: true, products });
 });
 
-app.post("/api/wholesalers/saveProfile", async (req, res) => {
-  try {
-    const { wholesalerId, shopName, mobile, address } = req.body;
+/* ================= CART ================= */
+app.post("/api/cart/save", async (req, res) => {
+  const { retailerId, items } = req.body;
 
-    if (!wholesalerId || !mobile) {
-      return res.status(400).json({
-        success: false,
-        msg: "Missing wholesalerId or mobile"
-      });
-    }
+  await Cart.findOneAndUpdate(
+    { retailerId },
+    { items },
+    { upsert: true }
+  );
 
-    const user = await User.findByIdAndUpdate(
-      wholesalerId,
-      {
-        name: shopName,
-        mobile: mobile,
-        shop_current_location: address
-      },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.json({ success: false, msg: "User not found" });
-    }
-
-    res.json({
-      success: true,
-      profile: {
-        shopName: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location
-      }
-    });
-
-  } catch (err) {
-    console.error("SAVE PROFILE ERROR:", err);
-    res.status(500).json({ success: false, msg: "Server error" });
-  }
+  res.json({ success: true });
 });
 
-
-app.get("/api/wholesalers/profile/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.json({ success: false });
-    }
-
-    res.json({
-      success: true,
-      profile: {
-        shopName: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location
-      }
-    });
-
-  } catch (err) {
-    console.error("GET PROFILE ERROR:", err);
-    res.status(500).json({ success: false });
-  }
+app.get("/api/cart/:retailerId", async (req, res) => {
+  const cart = await Cart.findOne({ retailerId: req.params.retailerId });
+  res.json({ success: true, cart });
 });
 
-
-
-/* ================= PAYMENT CREATE ================= */
+/* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
-  try {
-    const order = await razorpay.orders.create({
-      amount: req.body.amount * 100, // ✅ FIXED
-      currency: "INR",
-      receipt: "rcpt_" + Date.now()
-    });
+  const order = await razorpay.orders.create({
+    amount: req.body.amount * 100,
+    currency: "INR",
+    receipt: "rcpt_" + Date.now()
+  });
 
-    res.json({
-      success: true,
-      order,
-      key: process.env.RAZORPAY_KEY_ID
-    });
-  } catch (err) {
-    console.log(err);
-    res.json({ success: false });
-  }
+  res.json({
+    success: true,
+    order,
+    key: process.env.RAZORPAY_KEY_ID
+  });
 });
 
-/* ================= CONFIRM AFTER PAYMENT ================= */
+/* ================= CONFIRM ORDER ================= */
 app.post("/api/orders/confirm-after-payment", async (req, res) => {
   try {
     const {
@@ -253,17 +246,15 @@ app.post("/api/orders/confirm-after-payment", async (req, res) => {
       wholesalerId,
       wholesalerName,
       wholesalerMobile,
-      wholesalerAddress,
-      description
+      wholesalerAddress
     } = req.body;
 
     const product = await Product.findById(productId);
     if (!product) return res.json({ success: false });
 
-    let deliveryCharge = 0;
-    if (vehicleType === "two_wheeler") deliveryCharge = 1;
-    else if (vehicleType === "three_wheeler") deliveryCharge = 50;
-    else if (vehicleType === "four_wheeler") deliveryCharge = 80;
+    let deliveryCharge =
+      vehicleType === "two_wheeler" ? 1 :
+      vehicleType === "three_wheeler" ? 50 : 80;
 
     const totalAmount = product.price + deliveryCharge;
 
@@ -287,15 +278,12 @@ app.post("/api/orders/confirm-after-payment", async (req, res) => {
       totalAmount,
 
       paymentId,
-      description,
-
       status: "paid",
       statusHistory: [{ status: "paid", time: Date.now() }]
     });
 
     res.json({ success: true, order });
-  } catch (err) {
-    console.log(err);
+  } catch {
     res.json({ success: false });
   }
 });
@@ -319,13 +307,11 @@ app.post("/api/orders/generate-delivery-code/:id", async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) return res.json({ success: false });
 
-  if (!order.deliveryCode) {
-    order.deliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
-    order.deliveryCodeTime = new Date();
-    order.status = "out_for_delivery";
-    order.statusHistory.push({ status: "out_for_delivery", time: Date.now() });
-    await order.save();
-  }
+  order.deliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+  order.deliveryCodeTime = new Date();
+  order.status = "out_for_delivery";
+  order.statusHistory.push({ status: "out_for_delivery", time: Date.now() });
+  await order.save();
 
   res.json({ success: true });
 });
@@ -357,10 +343,7 @@ app.get("/api/orders/wholesaler/:wid", async (req, res) => {
 
 app.get("/api/orders/delivery/:id", async (req, res) => {
   const orders = await Order.find({
-    $or: [
-      { status: "paid" },
-      { deliveryBoyId: req.params.id }
-    ]
+    $or: [{ status: "paid" }, { deliveryBoyId: req.params.id }]
   }).sort({ createdAt: -1 });
 
   res.json({ success: true, orders });
