@@ -319,7 +319,48 @@ app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
     res.json({success:true});
 });
 
+app.post("/api/delivery/profile/save", async (req, res) => {
+  try {
+    const { deliveryBoyId } = req.body;
 
+    if (!deliveryBoyId) {
+      return res.status(400).json({ success: false, message: "ID required" });
+    }
+
+    const profile = await DeliveryProfile.findOneAndUpdate(
+      { deliveryBoyId },
+      req.body,
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Profile saved",
+      profile
+    });
+
+  } catch (err) {
+    console.error("Profile Save Error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+app.get("/api/delivery/profile/:id", async (req, res) => {
+  try {
+    const profile = await DeliveryProfile.findOne({
+      deliveryBoyId: req.params.id
+    });
+
+    res.json({
+      success: true,
+      profile
+    });
+
+  } catch (err) {
+    console.error("Profile Get Error:", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 /* ================= GET ORDERS ================= */
 app.get("/api/orders/retailer/:mobile", async (req,res)=>{
