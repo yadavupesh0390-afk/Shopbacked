@@ -86,6 +86,17 @@ const cartSchema = new mongoose.Schema({
 
 const Cart = mongoose.model("Cart", cartSchema);
 
+const DeliveryProfileSchema = new mongoose.Schema({
+  deliveryBoyId: { type: String, required: true, unique: true },
+  name: String,
+  mobile: String,
+  vehicle: String,
+  vehicleNo: String,
+  city: String
+}, { timestamps: true });
+
+const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema);
+
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
     try{
@@ -307,6 +318,8 @@ app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
     await order.save();
     res.json({success:true});
 });
+
+
 
 /* ================= GET ORDERS ================= */
 app.get("/api/orders/retailer/:mobile", async (req,res)=>{
