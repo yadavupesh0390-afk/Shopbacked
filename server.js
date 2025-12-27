@@ -305,27 +305,40 @@ res.json({success:true});
 app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
   try {
     const order = await Order.findById(req.params.id);
-    if(!order) return res.json({success:false});
+    if(!order) return res.json({ success:false, message:"Order not found" });
 
-    if(!order.deliveryCode){
-      const code = Math.floor(100000 + Math.random()*900000).toString();
-      order.deliveryCode = code;
-      order.deliveryCodeTime = new Date();
-      order.status = "delivery_code_generated"; // updated status
-      order.statusHistory.push({status:"delivery_code_generated",time:Date.now()});
-
-      await order.save();
-
-      // ✅ SMS send to retailer (mock)
-      console.log(`SMS sent to ${order.retailerMobile}: Your delivery code is ${code}`);
-
-      res.json({success:true, deliveryCode: code});
-    } else {
-      res.json({success:true, deliveryCode: order.deliveryCode});
+    // ✅ YAHI PAR ADD KARNA HAI (IMPORTANT)
+    if(order.status !== "picked_up"){
+      return res.json({
+        success:false,
+        message:"Order not picked up yet"
+      });
     }
+
+    // 🔐 Agar code already hai
+    if(order.deliveryCode){
+      return res.json({ success:true, deliveryCode: order.deliveryCode });
+    }
+
+    // ✅ New code generate
+    const code = Math.floor(100000 + Math.random()*900000).toString();
+    order.deliveryCode = code;
+    order.deliveryCodeTime = new Date();
+    order.status = "delivery_code_generated";
+    order.statusHistory.push({
+      status:"delivery_code_generated",
+      time:Date.now()
+    });
+
+    await order.save();
+
+    console.log(`📩 SMS to ${order.retailerMobile}: Delivery code is ${code}`);
+
+    res.json({ success:true, deliveryCode: code });
+
   } catch(err){
-    console.error(err);
-    res.json({success:false});
+    console.error("Generate Code Error:", err);
+    res.status(500).json({ success:false });
   }
 });
 
