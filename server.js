@@ -418,27 +418,76 @@ res.status(500).json({ success: false });
 }
 });
 
-/* ================= GET ORDERS ================= */
-app.get("/api/orders/retailer/:mobile", async (req,res)=>{
-const orders = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
-res.json({success:true, orders});
-});
-app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
-const orders = await Order.find({wholesalerId:req.params.wid.toLowerCase()}).sort({createdAt:-1});
-res.json({success:true, orders});
-});
-app.get("/api/orders/delivery/:id", async (req,res)=>{
-  const orders = await Order.find({
-    $or:[
-      { status:"paid" },
-      { status:"delivery_accepted" },
-      { status:"picked_up" },
-      { status:"delivery_code_generated" },
-      { deliveryBoyId:req.params.id }
-    ]
-  }).sort({createdAt:-1});
+/* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
 
-  res.json({success:true, orders});
+const TEN_MIN = 10 * 60 * 1000;
+
+/* ===== RETAILER ===== */
+app.get("/api/orders/retailer/:mobile", async (req,res)=>{
+  const now = Date.now();
+
+  const orders = await Order.find({
+    retailerMobile: req.params.mobile,
+    $or: [
+      { status: { $ne: "delivered" } },
+      {
+        status: "delivered",
+        "statusHistory.time": { $gte: now - TEN_MIN }
+      }
+    ]
+  }).sort({ createdAt: -1 });
+
+  res.json({ success:true, orders });
+});
+
+
+/* ===== WHOLESALER ===== */
+app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
+  const now = Date.now();
+
+  const orders = await Order.find({
+    wholesalerId: req.params.wid.toLowerCase(),
+    $or: [
+      { status: { $ne: "delivered" } },
+      {
+        status: "delivered",
+        "statusHistory.time": { $gte: now - TEN_MIN }
+      }
+    ]
+  }).sort({ createdAt: -1 });
+
+  res.json({ success:true, orders });
+});
+
+
+/* ===== DELIVERY BOY ===== */
+app.get("/api/orders/delivery/:id", async (req,res)=>{
+  const now = Date.now();
+
+  const orders = await Order.find({
+    $and: [
+      {
+        $or: [
+          { status: "paid" },
+          { status: "delivery_accepted" },
+          { status: "picked_up" },
+          { status: "delivery_code_generated" },
+          {
+            status: "delivered",
+            "statusHistory.time": { $gte: now - TEN_MIN }
+          }
+        ]
+      },
+      {
+        $or: [
+          { deliveryBoyId: req.params.id },
+          { deliveryBoyId: { $exists: false } }
+        ]
+      }
+    ]
+  }).sort({ createdAt: -1 });
+
+  res.json({ success:true, orders });
 });
 
 /* ================= SERVER ================= */
