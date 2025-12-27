@@ -319,34 +319,20 @@ res.json({success:true});
 app.post("/api/orders/:id/pickup", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
+    if (!order) return res.json({ success: false, message: "Order not found" });
 
-    if (!order) {
-      return res.json({ success: false, message: "Order not found" });
+    if (order.status !== "delivery_accepted" && order.status !== "paid") {
+      return res.json({ success: false, message: "Order pickup not allowed" });
     }
 
-    // ✅ Status check
-    if (
-      order.status !== "delivery_accepted" &&
-      order.status !== "paid"
-    ) {
-      return res.json({
-        success: false,
-        message: "Order pickup not allowed"
-      });
-    }
-
-    order.status = "picked_up";
-    order.statusHistory.push({
-      status: "picked_up",
-      time: Date.now()
-    });
+    // ✅ Set status directly to out_for_delivery
+    order.status = "out_for_delivery";
+    order.statusHistory.push({ status: "out_for_delivery", time: Date.now() });
 
     await order.save();
-
     res.json({ success: true });
-
   } catch (err) {
-    console.error("Pickup Error:", err);
+    console.error(err);
     res.status(500).json({ success: false });
   }
 });
