@@ -421,7 +421,6 @@ res.status(500).json({ success: false });
 
 /* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
 
-const TEN_MIN = 10 * 60 * 1000;
 
 /* ===== RETAILER ===== */
 app.get("/api/orders/retailer/:mobile", async (req,res)=>{
@@ -433,10 +432,15 @@ app.get("/api/orders/retailer/:mobile", async (req,res)=>{
       { status: { $ne: "delivered" } },
       {
         status: "delivered",
-        "statusHistory.time": { $gte: now - TEN_MIN }
+        statusHistory: {
+          $elemMatch: {
+            status: "delivered",
+            time: { $gte: now - TEN_MIN }
+          }
+        }
       }
     ]
-  }).sort({ createdAt: -1 });
+  }).sort({ createdAt:-1 });
 
   res.json({ success:true, orders });
 });
@@ -452,10 +456,15 @@ app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
       { status: { $ne: "delivered" } },
       {
         status: "delivered",
-        "statusHistory.time": { $gte: now - TEN_MIN }
+        statusHistory: {
+          $elemMatch: {
+            status: "delivered",
+            time: { $gte: now - TEN_MIN }
+          }
+        }
       }
     ]
-  }).sort({ createdAt: -1 });
+  }).sort({ createdAt:-1 });
 
   res.json({ success:true, orders });
 });
@@ -466,31 +475,35 @@ app.get("/api/orders/delivery/:id", async (req,res)=>{
   const now = Date.now();
 
   const orders = await Order.find({
-    $and: [
+    $and:[
       {
-        $or: [
-          { status: "paid" },
-          { status: "delivery_accepted" },
-          { status: "picked_up" },
-          { status: "delivery_code_generated" },
+        $or:[
+          { status:"paid" },
+          { status:"delivery_accepted" },
+          { status:"picked_up" },
+          { status:"delivery_code_generated" },
           {
-            status: "delivered",
-            "statusHistory.time": { $gte: now - TEN_MIN }
+            status:"delivered",
+            statusHistory:{
+              $elemMatch:{
+                status:"delivered",
+                time:{ $gte: now - TEN_MIN }
+              }
+            }
           }
         ]
       },
       {
-        $or: [
-          { deliveryBoyId: req.params.id },
-          { deliveryBoyId: { $exists: false } }
+        $or:[
+          { deliveryBoyId:req.params.id },
+          { deliveryBoyId:{ $exists:false } }
         ]
       }
     ]
-  }).sort({ createdAt: -1 });
+  }).sort({ createdAt:-1 });
 
   res.json({ success:true, orders });
 });
-
 /* ================= SERVER ================= */
 app.get("/", (_,res)=>res.send("Backend Running ✅"));
 const PORT = process.env.PORT || 5000;
