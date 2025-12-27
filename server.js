@@ -302,26 +302,30 @@ $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 res.json({success:true});
 });
 
-app.post("/api/orders/:id/generate-delivery-code", async (req, res) => {
+app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
   try {
     const order = await Order.findById(req.params.id);
-    if (!order) return res.json({ success: false, message: "Order not found" });
+    if(!order) return res.json({success:false});
 
-    if (order.status !== "picked_up") {
-      return res.json({ success: false, message: "Cannot generate code yet" });
+    if(!order.deliveryCode){
+      const code = Math.floor(100000 + Math.random()*900000).toString();
+      order.deliveryCode = code;
+      order.deliveryCodeTime = new Date();
+      order.status = "delivery_code_generated"; // updated status
+      order.statusHistory.push({status:"delivery_code_generated",time:Date.now()});
+
+      await order.save();
+
+      // ✅ SMS send to retailer (mock)
+      console.log(`SMS sent to ${order.retailerMobile}: Your delivery code is ${code}`);
+
+      res.json({success:true, deliveryCode: code});
+    } else {
+      res.json({success:true, deliveryCode: order.deliveryCode});
     }
-
-    // ✅ Generate 6-digit delivery code
-    order.deliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
-    order.deliveryCodeTime = new Date();
-    order.status = "delivery_code_generated";
-    order.statusHistory.push({ status: "delivery_code_generated", time: Date.now() });
-
-    await order.save();
-    res.json({ success: true, message: "Delivery code generated", code: order.deliveryCode });
-  } catch (err) {
-    console.error("Generate Code Error:", err);
-    res.status(500).json({ success: false });
+  } catch(err){
+    console.error(err);
+    res.json({success:false});
   }
 });
 
