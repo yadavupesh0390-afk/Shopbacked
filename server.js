@@ -378,7 +378,47 @@ app.get("/api/orders/delivery/:id", async (req,res)=>{
     res.json({success:true, orders});
 });
 
-/* ================= SERVER ================= */
-app.get("/", (_,res)=>res.send("Backend Running ✅"));
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, ()=>console.log("Server running on", PORT));
+
+/* ================= PICKUP ORDER ================= */
+app.post("/api/orders/:id/pickup", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.json({ success: false, message: "Order not found" });
+    }
+
+    // ✅ Status check
+    if (
+      order.status !== "delivery_accepted" &&
+      order.status !== "paid"
+    ) {
+      return res.json({
+        success: false,
+        message: "Order pickup not allowed"
+      });
+    }
+
+    order.status = "picked_up";
+    order.statusHistory.push({
+      status: "picked_up",
+      time: Date.now()
+    });
+
+    await order.save();
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("Pickup Error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+      
+     
+/* ================= SERVER ==============
+== ./
+app.g, (",", (=>res.=>res.send("Backend Runnin;
+✅")); cons = ORT = p.oce.s.en || RT |;
+500.;
+app.liste, PO=>, ()=>c.nsole.log("Server runni,  on", ;
