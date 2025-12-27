@@ -415,10 +415,17 @@ const orders = await Order.find({wholesalerId:req.params.wid.toLowerCase()}).sor
 res.json({success:true, orders});
 });
 app.get("/api/orders/delivery/:id", async (req,res)=>{
-const orders = await Order.find({
-$or:[{status:"paid"},{deliveryBoyId:req.params.id}]
-}).sort({createdAt:-1});
-res.json({success:true, orders});
+  const orders = await Order.find({
+    $or:[
+      { status:"paid" },
+      { status:"delivery_accepted" },
+      { status:"picked_up" },
+      { status:"delivery_code_generated" },
+      { deliveryBoyId:req.params.id }
+    ]
+  }).sort({createdAt:-1});
+
+  res.json({success:true, orders});
 });
 
 /* ================= SERVER ================= */
