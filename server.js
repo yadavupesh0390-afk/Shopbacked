@@ -12,372 +12,308 @@ app.use(express.json({ limit: "10mb" }));
 
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected ✅"))
-  .catch(err => console.log("Mongo error ❌", err));
+.then(() => console.log("MongoDB connected ✅"))
+.catch(err => console.log("Mongo error ❌", err));
 
 /* ================= RAZORPAY ================= */
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
+key_id: process.env.RAZORPAY_KEY_ID,
+key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 /* ================= USER ================= */
 const userSchema = new mongoose.Schema({
-  role: String, // wholesaler | retailer | delivery
-  name: String,
-  mobile: String,
-  password: String,
-  shop_current_location: String,
-  vehicle: String,
-  vehicle_model: String,
-  vehicle_number: String
+role: String, // wholesaler | retailer | delivery
+name: String,
+mobile: String,
+password: String,
+shop_current_location: String,
+vehicle: String,
+vehicle_model: String,
+vehicle_number: String
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
-  wholesalerId: String,
-  productName: String,
-  price: Number,
-  detail: String,
-  image: String,
-  shopName: String,
-  mobile: String,
-  address: String
+wholesalerId: String,
+productName: String,
+price: Number,
+detail: String,
+image: String,
+shopName: String,
+mobile: String,
+address: String
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
-  paymentId: String,
-  wholesalerId: String,
-  wholesalerName: String,
-  wholesalerMobile: String,
-  wholesalerAddress: String,
-  productId: String,
-  productName: String,
-  productImg: String,
-  price: Number,
-  retailerName: String,
-  retailerMobile: String,
-  retailerAddress: String,
-  vehicleType: String,
-  deliveryCharge: Number,
-  totalAmount: Number,
-  deliveryBoyId: String,
-  deliveryBoyName: String,
-  deliveryBoyMobile: String,
-  deliveryCode: String,
-  deliveryCodeTime: Date,
-  description: String,
-  status: { type: String, default: "paid" },
-  statusHistory: [{ status: String, time: Number }]
+paymentId: String,
+wholesalerId: String,
+wholesalerName: String,
+wholesalerMobile: String,
+wholesalerAddress: String,
+productId: String,
+productName: String,
+productImg: String,
+price: Number,
+retailerName: String,
+retailerMobile: String,
+retailerAddress: String,
+vehicleType: String,
+deliveryCharge: Number,
+totalAmount: Number,
+deliveryBoyId: String,
+deliveryBoyName: String,
+deliveryBoyMobile: String,
+deliveryCode: String,
+deliveryCodeTime: Date,
+description: String,
+status: { type: String, default: "paid" },
+statusHistory: [{ status: String, time: Number }]
 }, { timestamps: true });
 
 const Order = mongoose.model("Order", orderSchema);
 
 /* ================= CART ================= */
 const cartSchema = new mongoose.Schema({
-  retailerId: String,
-  items: Array
+retailerId: String,
+items: Array
 }, { timestamps: true });
 
 const Cart = mongoose.model("Cart", cartSchema);
 
 const DeliveryProfileSchema = new mongoose.Schema({
-  deliveryBoyId: { type: String, required: true, unique: true },
-  name: String,
-  mobile: String,
-  vehicle: String,
-  vehicleNo: String,
-  city: String
+deliveryBoyId: { type: String, required: true, unique: true },
+name: String,
+mobile: String,
+vehicle: String,
+vehicleNo: String,
+city: String
 }, { timestamps: true });
 
 const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema);
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
-    try{
-        const { role, mobile, password } = req.body;
-        if(!role || !mobile || !password) return res.json({success:false});
+try{
+const { role, mobile, password } = req.body;
+if(!role || !mobile || !password) return res.json({success:false});
 
-        const exists = await User.findOne({mobile, role});
-        if(exists) return res.json({success:false});
+const exists = await User.findOne({mobile, role});  
+    if(exists) return res.json({success:false});  
 
-        const hashed = await bcrypt.hash(password,10);
-        const user = await User.create({...req.body,password:hashed});
+    const hashed = await bcrypt.hash(password,10);  
+    const user = await User.create({...req.body,password:hashed});  
 
-        const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
+    const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});  
 
-        res.json({success:true, token, userId:user._id});
-    }catch{
-        res.json({success:false});
-    }
+    res.json({success:true, token, userId:user._id});  
+}catch{  
+    res.json({success:false});  
+}
+
 });
 
 app.post("/api/login", async (req,res)=>{
-    const { mobile, password, role } = req.body;
-    const user = await User.findOne({mobile, role});
-    if(!user) return res.json({success:false});
+const { mobile, password, role } = req.body;
+const user = await User.findOne({mobile, role});
+if(!user) return res.json({success:false});
 
-    const ok = await bcrypt.compare(password, user.password);
-    if(!ok) return res.json({success:false});
+const ok = await bcrypt.compare(password, user.password);  
+if(!ok) return res.json({success:false});  
 
-    const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
+const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});  
 
-    res.json({success:true, token, userId:user._id});
+res.json({success:true, token, userId:user._id});
+
 });
 
 /* ================= PRODUCTS ================= */
 app.post("/api/products", async (req,res)=>{
-    const body = {...req.body, wholesalerId:req.body.wholesalerId.toLowerCase()};
-    const p = await Product.create(body);
-    res.json({success:true, product:p});
+const body = {...req.body, wholesalerId:req.body.wholesalerId.toLowerCase()};
+const p = await Product.create(body);
+res.json({success:true, product:p});
 });
 
 app.get("/api/products/wholesaler/:id", async (req,res)=>{
-    try{
-        const id = req.params.id.trim();
-        const products = await Product.find({
-            wholesalerId: { $regex: "^"+id, $options:"i" }
-        }).sort({createdAt:-1});
-        res.json({success:true, products});
-    }catch(err){
-        console.log(err);
-        res.json({success:false});
-    }
+try{
+const id = req.params.id.trim();
+const products = await Product.find({
+wholesalerId: { $regex: "^"+id, $options:"i" }
+}).sort({createdAt:-1});
+res.json({success:true, products});
+}catch(err){
+console.log(err);
+res.json({success:false});
+}
 });
 
 /* ================= PROFILE ================= */
 
 // Wholesaler profile
 app.post("/api/wholesalers/saveProfile", async (req,res)=>{
-    try{
-        const { wholesalerId, shopName, mobile, address } = req.body;
-        if(!wholesalerId || !mobile) return res.status(400).json({success:false,msg:"Missing info"});
+try{
+const { wholesalerId, shopName, mobile, address } = req.body;
+if(!wholesalerId || !mobile) return res.status(400).json({success:false,msg:"Missing info"});
 
-        const user = await User.findByIdAndUpdate(wholesalerId,{
-            name: shopName,
-            mobile,
-            shop_current_location: address
-        },{new:true});
+const user = await User.findByIdAndUpdate(wholesalerId,{  
+        name: shopName,  
+        mobile,  
+        shop_current_location: address  
+    },{new:true});  
 
-        if(!user) return res.json({success:false,msg:"User not found"});
+    if(!user) return res.json({success:false,msg:"User not found"});  
 
-        res.json({success:true, profile:{
-            shopName:user.name,
-            mobile:user.mobile,
-            address:user.shop_current_location
-        }});
-    }catch(err){ console.log(err); res.status(500).json({success:false}); }
+    res.json({success:true, profile:{  
+        shopName:user.name,  
+        mobile:user.mobile,  
+        address:user.shop_current_location  
+    }});  
+}catch(err){ console.log(err); res.status(500).json({success:false}); }
+
 });
 
 app.get("/api/wholesalers/profile/:id", async (req,res)=>{
-    try{
-        const user = await User.findById(req.params.id);
-        if(!user) return res.json({success:false});
-        res.json({success:true, profile:{
-            shopName:user.name,
-            mobile:user.mobile,
-            address:user.shop_current_location
-        }});
-    }catch(err){ console.log(err); res.status(500).json({success:false}); }
+try{
+const user = await User.findById(req.params.id);
+if(!user) return res.json({success:false});
+res.json({success:true, profile:{
+shopName:user.name,
+mobile:user.mobile,
+address:user.shop_current_location
+}});
+}catch(err){ console.log(err); res.status(500).json({success:false}); }
 });
 
 // Retailer profile
 app.post("/api/retailers/saveProfile", async (req,res)=>{
-    try{
-        const { retailerId, name, mobile, address } = req.body;
-        if(!retailerId || !mobile) return res.json({success:false});
+try{
+const { retailerId, name, mobile, address } = req.body;
+if(!retailerId || !mobile) return res.json({success:false});
 
-        const user = await User.findByIdAndUpdate(retailerId,{
-            name, mobile, shop_current_location: address
-        },{new:true});
+const user = await User.findByIdAndUpdate(retailerId,{  
+        name, mobile, shop_current_location: address  
+    },{new:true});  
 
-        if(!user) return res.json({success:false,msg:"User not found"});
-        res.json({success:true, profile:{
-            name:user.name, mobile:user.mobile, address:user.shop_current_location
-        }});
-    }catch(err){ console.log(err); res.status(500).json({success:false}); }
+    if(!user) return res.json({success:false,msg:"User not found"});  
+    res.json({success:true, profile:{  
+        name:user.name, mobile:user.mobile, address:user.shop_current_location  
+    }});  
+}catch(err){ console.log(err); res.status(500).json({success:false}); }
+
 });
 
 app.get("/api/retailers/profile/:id", async (req,res)=>{
-    try{
-        const user = await User.findById(req.params.id);
-        if(!user) return res.json({success:false});
-        res.json({success:true, profile:{
-            name:user.name, mobile:user.mobile, address:user.shop_current_location
-        }});
-    }catch(err){ console.log(err); res.status(500).json({success:false}); }
+try{
+const user = await User.findById(req.params.id);
+if(!user) return res.json({success:false});
+res.json({success:true, profile:{
+name:user.name, mobile:user.mobile, address:user.shop_current_location
+}});
+}catch(err){ console.log(err); res.status(500).json({success:false}); }
 });
 
 /* ================= CART ================= */
 app.post("/api/cart/save", async (req,res)=>{
-    const { retailerId, items } = req.body;
-    if(!retailerId) return res.json({success:false});
-    let cart = await Cart.findOne({retailerId});
-    if(cart){ cart.items = items; await cart.save(); }
-    else{ cart = await Cart.create({retailerId, items}); }
-    res.json({success:true, cart});
+const { retailerId, items } = req.body;
+if(!retailerId) return res.json({success:false});
+let cart = await Cart.findOne({retailerId});
+if(cart){ cart.items = items; await cart.save(); }
+else{ cart = await Cart.create({retailerId, items}); }
+res.json({success:true, cart});
 });
 
 app.get("/api/cart/:retailerId", async (req,res)=>{
-    const cart = await Cart.findOne({retailerId:req.params.retailerId});
-    res.json({success:true, cart});
+const cart = await Cart.findOne({retailerId:req.params.retailerId});
+res.json({success:true, cart});
 });
 
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req,res)=>{
-    try{
-        const order = await razorpay.orders.create({
-            amount: req.body.amount*100,
-            currency:"INR",
-            receipt:"rcpt_"+Date.now()
-        });
-        res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amount});
-    }catch(err){ console.log(err); res.json({success:false}); }
+try{
+const order = await razorpay.orders.create({
+amount: req.body.amount100,
+currency:"INR",
+receipt:"rcpt_"+Date.now()
+});
+res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amount});
+}catch(err){ console.log(err); res.json({success:false}); }
 });
 
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
-    try{
-        const {
-            products, productId, paymentId, vehicleType,
-            retailerName, retailerMobile, retailerAddress,
-            totalAmount, deliveryCharge
-        } = req.body;
+try{
+const {
+products, productId, paymentId, vehicleType,
+retailerName, retailerMobile, retailerAddress,
+totalAmount, deliveryCharge
+} = req.body;
 
-        // Single product order
-        if(productId){
-            const product = await Product.findById(productId);
-            if(!product) return res.json({success:false});
-            const order = await Order.create({
-                productId,
-                productName: product.productName,
-                productImg: product.image,
-                price: product.price,
-                retailerName, retailerMobile, retailerAddress,
-                vehicleType, deliveryCharge, totalAmount,
-                paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]
-            });
-            return res.json({success:true, order});
-        }
+// Single product order  
+    if(productId){  
+        const product = await Product.findById(productId);  
+        if(!product) return res.json({success:false});  
+        const order = await Order.create({  
+            productId,  
+            productName: product.productName,  
+            productImg: product.image,  
+            price: product.price,  
+            retailerName, retailerMobile, retailerAddress,  
+            vehicleType, deliveryCharge, totalAmount,  
+            paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]  
+        });  
+        return res.json({success:true, order});  
+    }  
 
-        // Cart order (multiple products)
-        if(products && products.length>0){
-            const orders = [];
-            for(let p of products){
-                const order = await Order.create({
-                    productId: p._id,
-                    productName: p.productName,
-                    productImg: p.image,
-                    price: p.price,
-                    retailerName, retailerMobile, retailerAddress,
-                    vehicleType, deliveryCharge, totalAmount,
-                    paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]
-                });
-                orders.push(order);
-            }
-            return res.json({success:true, orders});
-        }
+    // Cart order (multiple products)  
+    if(products && products.length>0){  
+        const orders = [];  
+        for(let p of products){  
+            const order = await Order.create({  
+                productId: p._id,  
+                productName: p.productName,  
+                productImg: p.image,  
+                price: p.price,  
+                retailerName, retailerMobile, retailerAddress,  
+                vehicleType, deliveryCharge, totalAmount,  
+                paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]  
+            });  
+            orders.push(order);  
+        }  
+        return res.json({success:true, orders});  
+    }  
 
-        res.json({success:false});
-    }catch(err){ console.log(err); res.json({success:false}); }
+    res.json({success:false});  
+}catch(err){ console.log(err); res.json({success:false}); }
+
 });
 
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-    const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-    await Order.findByIdAndUpdate(req.params.id,{
-        deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-        status:"delivery_accepted",
-        $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-    });
-    res.json({success:true});
+const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+await Order.findByIdAndUpdate(req.params.id,{
+deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
+status:"delivery_accepted",
+$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
+});
+res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
-    const order = await Order.findById(req.params.id);
-    if(!order) return res.json({success:false});
-    if(!order.deliveryCode){
-        order.deliveryCode = Math.floor(100000 + Math.random()*900000).toString();
-        order.deliveryCodeTime = new Date();
-        order.status = "out_for_delivery";
-        order.statusHistory.push({status:"out_for_delivery",time:Date.now()});
-        await order.save();
-    }
-    res.json({success:true});
+const order = await Order.findById(req.params.id);
+if(!order) return res.json({success:false});
+if(!order.deliveryCode){
+order.deliveryCode = Math.floor(100000 + Math.random()*900000).toString();
+order.deliveryCodeTime = new Date();
+order.status = "out_for_delivery";
+order.statusHistory.push({status:"out_for_delivery",time:Date.now()});
+await order.save();
+}
+res.json({success:true});
 });
-
-app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
-    const order = await Order.findById(req.params.id);
-    if(!order || order.deliveryCode !== req.body.code) return res.json({success:false});
-    order.status = "delivered";
-    order.statusHistory.push({status:"delivered",time:Date.now()});
-    await order.save();
-    res.json({success:true});
-});
-
-app.post("/api/delivery/profile/save", async (req, res) => {
-  try {
-    const { deliveryBoyId } = req.body;
-
-    if (!deliveryBoyId) {
-      return res.status(400).json({ success: false, message: "ID required" });
-    }
-
-    const profile = await DeliveryProfile.findOneAndUpdate(
-      { deliveryBoyId },
-      req.body,
-      { upsert: true, new: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Profile saved",
-      profile
-    });
-
-  } catch (err) {
-    console.error("Profile Save Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-app.get("/api/delivery/profile/:id", async (req, res) => {
-  try {
-    const profile = await DeliveryProfile.findOne({
-      deliveryBoyId: req.params.id
-    });
-
-    res.json({
-      success: true,
-      profile
-    });
-
-  } catch (err) {
-    console.error("Profile Get Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-/* ================= GET ORDERS ================= */
-app.get("/api/orders/retailer/:mobile", async (req,res)=>{
-    const orders = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
-    res.json({success:true, orders});
-});
-app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
-    const orders = await Order.find({wholesalerId:req.params.wid.toLowerCase()}).sort({createdAt:-1});
-    res.json({success:true, orders});
-});
-app.get("/api/orders/delivery/:id", async (req,res)=>{
-    const orders = await Order.find({
-        $or:[{status:"paid"},{deliveryBoyId:req.params.id}]
-    }).sort({createdAt:-1});
-    res.json({success:true, orders});
-});
-
 
 /* ================= PICKUP ORDER ================= */
 app.post("/api/orders/:id/pickup", async (req, res) => {
@@ -414,11 +350,77 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
-      
-     
-/* ================= SERVER ==============
-== ./
-app.g, (",", (=>res.=>res.send("Backend Runnin;
-✅")); cons = ORT = p.oce.s.en || RT |;
-500.;
-app.liste, PO=>, ()=>c.nsole.log("Server runni,  on", ;
+
+
+app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
+const order = await Order.findById(req.params.id);
+if(!order || order.deliveryCode !== req.body.code) return res.json({success:false});
+order.status = "delivered";
+order.statusHistory.push({status:"delivered",time:Date.now()});
+await order.save();
+res.json({success:true});
+});
+
+app.post("/api/delivery/profile/save", async (req, res) => {
+try {
+const { deliveryBoyId } = req.body;
+
+if (!deliveryBoyId) {  
+  return res.status(400).json({ success: false, message: "ID required" });  
+}  
+
+const profile = await DeliveryProfile.findOneAndUpdate(  
+  { deliveryBoyId },  
+  req.body,  
+  { upsert: true, new: true }  
+);  
+
+res.json({  
+  success: true,  
+  message: "Profile saved",  
+  profile  
+});
+
+} catch (err) {
+console.error("Profile Save Error:", err);
+res.status(500).json({ success: false });
+}
+});
+
+app.get("/api/delivery/profile/:id", async (req, res) => {
+try {
+const profile = await DeliveryProfile.findOne({
+deliveryBoyId: req.params.id
+});
+
+res.json({  
+  success: true,  
+  profile  
+});
+
+} catch (err) {
+console.error("Profile Get Error:", err);
+res.status(500).json({ success: false });
+}
+});
+
+/* ================= GET ORDERS ================= */
+app.get("/api/orders/retailer/:mobile", async (req,res)=>{
+const orders = await Order.find({retailerMobile:req.params.mobile}).sort({createdAt:-1});
+res.json({success:true, orders});
+});
+app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
+const orders = await Order.find({wholesalerId:req.params.wid.toLowerCase()}).sort({createdAt:-1});
+res.json({success:true, orders});
+});
+app.get("/api/orders/delivery/:id", async (req,res)=>{
+const orders = await Order.find({
+$or:[{status:"paid"},{deliveryBoyId:req.params.id}]
+}).sort({createdAt:-1});
+res.json({success:true, orders});
+});
+
+/* ================= SERVER ================= */
+app.get("/", (_,res)=>res.send("Backend Running ✅"));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, ()=>console.log("Server running on", PORT));
