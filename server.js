@@ -302,17 +302,27 @@ $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 res.json({success:true});
 });
 
-app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
-const order = await Order.findById(req.params.id);
-if(!order) return res.json({success:false});
-if(!order.deliveryCode){
-order.deliveryCode = Math.floor(100000 + Math.random()*900000).toString();
-order.deliveryCodeTime = new Date();
-order.status = "out_for_delivery";
-order.statusHistory.push({status:"out_for_delivery",time:Date.now()});
-await order.save();
-}
-res.json({success:true});
+app.post("/api/orders/:id/generate-delivery-code", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.json({ success: false, message: "Order not found" });
+
+    if (order.status !== "picked_up") {
+      return res.json({ success: false, message: "Cannot generate code yet" });
+    }
+
+    // ✅ Generate 6-digit delivery code
+    order.deliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+    order.deliveryCodeTime = new Date();
+    order.status = "delivery_code_generated";
+    order.statusHistory.push({ status: "delivery_code_generated", time: Date.now() });
+
+    await order.save();
+    res.json({ success: true, message: "Delivery code generated", code: order.deliveryCode });
+  } catch (err) {
+    console.error("Generate Code Error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 /* ================= PICKUP ORDER ================= */
