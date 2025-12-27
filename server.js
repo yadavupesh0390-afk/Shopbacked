@@ -321,18 +321,19 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.json({ success: false, message: "Order not found" });
 
+    // ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai
     if (order.status !== "delivery_accepted" && order.status !== "paid") {
       return res.json({ success: false, message: "Order pickup not allowed" });
     }
 
-    // ✅ Set status directly to out_for_delivery
-    order.status = "out_for_delivery";
-    order.statusHistory.push({ status: "out_for_delivery", time: Date.now() });
+    // ✅ Status set karen picked_up
+    order.status = "picked_up";
+    order.statusHistory.push({ status: "picked_up", time: Date.now() });
 
     await order.save();
-    res.json({ success: true });
+    res.json({ success: true, message: "Order picked up successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Pickup Error:", err);
     res.status(500).json({ success: false });
   }
 });
