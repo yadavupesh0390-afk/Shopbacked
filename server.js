@@ -302,6 +302,71 @@ $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 res.json({success:true});
 });
 
+app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
+  try{
+    const order = await Order.findById(req.params.orderId);
+    if(!order){
+      return res.json({ success:false, message:"Order not found" });
+    }
+
+    // Sirf picked_up ya delivery_code_generated allow
+    if(!["picked_up","delivery_code_generated"].includes(order.status)){
+      return res.json({ success:false, message:"Invalid order state" });
+    }
+
+    // 🔐 New 4-digit code
+    const code = Math.floor(1000 + Math.random()*9000).toString();
+
+    order.deliveryCode = code;
+    order.deliveryCodeTime = new Date();
+    order.status = "delivery_code_generated";
+
+    order.statusHistory.push({
+      status:"delivery_code_generated",
+      time:new Date()
+    });
+
+    await order.save();
+
+    // 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo
+    // sendToRetailer(order.retailerMobile, code);
+
+    res.json({
+      success:true,
+      message:"Delivery code generated & sent",
+      code // ⚠️ testing only
+    });
+
+  }catch(err){
+    console.error(err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
+});
+
+/* ================= PICKUP ORDER ================= */
+app.post("/api/orders/:id/pickup", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.json({ success: false, message: "Order not found" });
+
+    // ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai
+    if (order.status !== "delivery_accepted" && order.status !== "paid") {
+      return res.json({ success: false, message: "Order pickup not allowed" });
+    }
+
+    // ✅ Status set karen picked_up
+    order.status = "picked_up";
+    order.statusHistory.push({ status: "picked_up", time: Date.now() });
+
+    await order.save();
+    res.json({ success: true, message: "Order picked up successfully" });
+  } catch (err) {
+    console.error("Pickup Error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
 app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
   try{
     const { code } = req.body;
@@ -360,72 +425,6 @@ app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
   }catch(err){
     console.error(err);
     res.status(500).json({ success:false, message:"Server error" });
-  }
-});
-
-/* ================= PICKUP ORDER ================= */
-app.post("/api/orders/:id/pickup", async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.json({ success: false, message: "Order not found" });
-
-    // ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai
-    if (order.status !== "delivery_accepted" && order.status !== "paid") {
-      return res.json({ success: false, message: "Order pickup not allowed" });
-    }
-
-    // ✅ Status set karen picked_up
-    order.status = "picked_up";
-    order.statusHistory.push({ status: "picked_up", time: Date.now() });
-
-    await order.save();
-    res.json({ success: true, message: "Order picked up successfully" });
-  } catch (err) {
-    console.error("Pickup Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-
-app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
-  try{
-    const order = await Order.findById(req.params.id);
-    if(!order){
-      return res.json({ success:false, message:"Order not found" });
-    }
-
-    if(order.status === "delivered"){
-      return res.json({ success:false, message:"Order already delivered" });
-    }
-
-    const inputCode = String(req.body.code).trim();
-    const savedCode = String(order.deliveryCode || "").trim();
-
-    if(inputCode !== savedCode){
-      return res.json({ success:false, message:"Invalid delivery code" });
-    }
-
-    const FIVE_MIN = 5 * 60 * 1000;
-    if(!order.deliveryCodeTime || Date.now() - order.deliveryCodeTime.getTime() > FIVE_MIN){
-      return res.json({
-        success:false,
-        message:"Delivery code expired. Generate new code."
-      });
-    }
-
-    order.status = "delivered";
-    order.statusHistory.push({
-      status:"delivered",
-      time:Date.now()
-    });
-
-    await order.save();
-
-    res.json({ success:true, message:"Order delivered successfully" });
-
-  }catch(err){
-    console.error("Verify Code Error:", err);
-    res.status(500).json({ success:false });
   }
 });
 app.post("/api/delivery/profile/save", async (req, res) => {
