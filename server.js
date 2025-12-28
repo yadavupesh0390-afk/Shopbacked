@@ -99,23 +99,47 @@ const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema)
 
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
-try{
-const { role, mobile, password } = req.body;
-if(!role || !mobile || !password) return res.json({success:false});
+  try{
+    const { role, mobile, password } = req.body;
 
-const exists = await User.findOne({mobile, role});  
-    if(exists) return res.json({success:false});  
+    if(!role || !mobile || !password){
+      return res.json({ success:false, message:"Missing fields" });
+    }
 
-    const hashed = await bcrypt.hash(password,10);  
-    const user = await User.create({...req.body,password:hashed});  
+    const exists = await User.findOne({ mobile, role });
+    if(exists){
+      return res.json({ success:false, message:"User already exists" });
+    }
 
-    const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});  
+    const hashed = await bcrypt.hash(password,10);
 
-    res.json({success:true, token, userId:user._id});  
-}catch{  
-    res.json({success:false});  
-}
+    const user = await User.create({
+      ...req.body,
+      password: hashed
+    });
 
+    const token = jwt.sign(
+      { id:user._id, role:user.role },
+      process.env.JWT_SECRET,
+      { expiresIn:"7d" }
+    );
+
+    // ✅ IMPORTANT: full user object bhejo
+    res.json({
+      success:true,
+      token,
+      user: {
+        _id: user._id,
+        role: user.role,
+        name: user.name,
+        mobile: user.mobile
+      }
+    });
+
+  }catch(err){
+    console.error("Signup Error:", err);
+    res.status(500).json({ success:false, message:"Signup failed" });
+  }
 });
 
 app.post("/api/login", async (req,res)=>{
