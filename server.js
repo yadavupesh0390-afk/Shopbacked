@@ -367,14 +367,46 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
 
 
 app.post("/api/orders/verify-delivery-code/:id", async (req,res)=>{
-const order = await Order.findById(req.params.id);
-if(!order || order.deliveryCode !== req.body.code) return res.json({success:false});
-order.status = "delivered";
-order.statusHistory.push({status:"delivered",time:Date.now()});
-await order.save();
-res.json({success:true});
-});
+  try{
+    const order = await Order.findById(req.params.id);
+    if(!order){
+      return res.json({ success:false, message:"Order not found" });
+    }
 
+    if(order.status === "delivered"){
+      return res.json({ success:false, message:"Order already delivered" });
+    }
+
+    const inputCode = String(req.body.code).trim();
+    const savedCode = String(order.deliveryCode || "").trim();
+
+    if(inputCode !== savedCode){
+      return res.json({ success:false, message:"Invalid delivery code" });
+    }
+
+    const FIVE_MIN = 5 * 60 * 1000;
+    if(!order.deliveryCodeTime || Date.now() - order.deliveryCodeTime.getTime() > FIVE_MIN){
+      return res.json({
+        success:false,
+        message:"Delivery code expired. Generate new code."
+      });
+    }
+
+    order.status = "delivered";
+    order.statusHistory.push({
+      status:"delivered",
+      time:Date.now()
+    });
+
+    await order.save();
+
+    res.json({ success:true, message:"Order delivered successfully" });
+
+  }catch(err){
+    console.error("Verify Code Error:", err);
+    res.status(500).json({ success:false });
+  }
+});
 app.post("/api/delivery/profile/save", async (req, res) => {
 try {
 const { deliveryBoyId } = req.body;
