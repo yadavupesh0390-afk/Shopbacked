@@ -302,45 +302,64 @@ $push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 res.json({success:true});
 });
 
-app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
+app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
   try{
-    const order = await Order.findById(req.params.id);
-    if(!order) return res.json({ success:false });
+    const { code } = req.body;
+    const order = await Order.findById(req.params.orderId);
 
-    // ❌ Only picked_up allowed
-    if(order.status !== "picked_up" && order.status !== "delivery_code_generated"){
+    if(!order){
+      return res.json({ success:false, message:"Order not found" });
+    }
+
+    if(order.status !== "delivery_code_generated"){
+      return res.json({ success:false, message:"Order not ready for delivery" });
+    }
+
+    // ⏱️ 10 minute expiry
+    const TEN_MIN = 10 * 60 * 1000;
+    const expired = Date.now() - new Date(order.deliveryCodeTime).getTime() > TEN_MIN;
+
+    // ❌ CODE EXPIRED
+    if(expired){
+      order.status = "picked_up";          // 🔥 AUTO FIX
+      order.deliveryCode = null;
+      order.deliveryCodeTime = null;
+
+      order.statusHistory.push({
+        status:"code_expired",
+        time:new Date()
+      });
+
+      await order.save();
+
       return res.json({
         success:false,
-        message:"Order not ready for code"
+        message:"Delivery code expired. Generate new code."
       });
     }
 
-    // ✅ IMPORTANT — already generated
-    if(order.deliveryCode){
-      return res.json({
-        success:true,
-        deliveryCode: order.deliveryCode,
-        message:"Code already generated"
-      });
+    // ❌ WRONG CODE
+    if(order.deliveryCode !== code){
+      return res.json({ success:false, message:"Wrong delivery code" });
     }
 
-    const code = Math.floor(100000 + Math.random()*900000).toString();
+    // ✅ CORRECT CODE → DELIVERED
+    order.status = "delivered";
+    order.deliveryCode = null;
+    order.deliveryCodeTime = null;
 
-    order.deliveryCode = code;
-    order.deliveryCodeTime = new Date();
-    order.status = "delivery_code_generated";
     order.statusHistory.push({
-      status:"delivery_code_generated",
-      time:Date.now()
+      status:"delivered",
+      time:new Date()
     });
 
     await order.save();
 
-    res.json({ success:true, deliveryCode: code });
+    res.json({ success:true, message:"Order delivered successfully" });
 
   }catch(err){
     console.error(err);
-    res.status(500).json({ success:false });
+    res.status(500).json({ success:false, message:"Server error" });
   }
 });
 
