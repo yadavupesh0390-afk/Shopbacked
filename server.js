@@ -303,25 +303,29 @@ res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
-  try {
+  try{
     const order = await Order.findById(req.params.id);
-    if(!order) return res.json({ success:false, message:"Order not found" });
+    if(!order) return res.json({ success:false });
 
-    // ✅ YAHI PAR ADD KARNA HAI (IMPORTANT)
-    if(order.status !== "picked_up"){
+    // ❌ Only picked_up allowed
+    if(order.status !== "picked_up" && order.status !== "delivery_code_generated"){
       return res.json({
         success:false,
-        message:"Order not picked up yet"
+        message:"Order not ready for code"
       });
     }
 
-    // 🔐 Agar code already hai
+    // ✅ IMPORTANT — already generated
     if(order.deliveryCode){
-      return res.json({ success:true, deliveryCode: order.deliveryCode });
+      return res.json({
+        success:true,
+        deliveryCode: order.deliveryCode,
+        message:"Code already generated"
+      });
     }
 
-    // ✅ New code generate
     const code = Math.floor(100000 + Math.random()*900000).toString();
+
     order.deliveryCode = code;
     order.deliveryCodeTime = new Date();
     order.status = "delivery_code_generated";
@@ -332,12 +336,10 @@ app.post("/api/orders/generate-delivery-code/:id", async (req,res)=>{
 
     await order.save();
 
-    console.log(`📩 SMS to ${order.retailerMobile}: Delivery code is ${code}`);
-
     res.json({ success:true, deliveryCode: code });
 
-  } catch(err){
-    console.error("Generate Code Error:", err);
+  }catch(err){
+    console.error(err);
     res.status(500).json({ success:false });
   }
 });
