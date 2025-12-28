@@ -421,6 +421,7 @@ res.status(500).json({ success: false });
 
 /* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
 
+const TEN_MIN = 10 * 60 * 1000;
 
 /* ===== RETAILER ===== */
 app.get("/api/orders/retailer/:mobile", async (req,res)=>{
