@@ -100,10 +100,18 @@ const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema)
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
   try{
-    const { role, mobile, password } = req.body;
+    console.log("SIGNUP BODY 👉", req.body);
+
+    const role = req.body.role;
+    const mobile = req.body.mobile || req.body.phone; // 🔥 FIX
+    const password = req.body.password;
 
     if(!role || !mobile || !password){
-      return res.json({ success:false, message:"Missing fields" });
+      return res.json({
+        success:false,
+        message:"Missing fields",
+        received:req.body
+      });
     }
 
     const exists = await User.findOne({ mobile, role });
@@ -115,6 +123,7 @@ app.post("/api/signup", async (req,res)=>{
 
     const user = await User.create({
       ...req.body,
+      mobile,
       password: hashed
     });
 
@@ -124,21 +133,20 @@ app.post("/api/signup", async (req,res)=>{
       { expiresIn:"7d" }
     );
 
-    // ✅ IMPORTANT: full user object bhejo
     res.json({
       success:true,
       token,
-      user: {
-        _id: user._id,
-        role: user.role,
-        name: user.name,
-        mobile: user.mobile
+      user:{
+        _id:user._id,
+        role:user.role,
+        mobile:user.mobile,
+        name:user.name || ""
       }
     });
 
   }catch(err){
     console.error("Signup Error:", err);
-    res.status(500).json({ success:false, message:"Signup failed" });
+    res.status(500).json({ success:false });
   }
 });
 
