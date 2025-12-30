@@ -285,6 +285,38 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 }catch(err){ console.log(err); res.json({success:false}); }
 });
 
+const crypto = require("crypto");
+
+app.post("/api/payment/verify", async (req, res) => {
+  try {
+    const {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature
+    } = req.body;
+
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if (expected !== razorpay_signature) {
+      // ❌ FAIL — yahin fail SMS bhejna
+      return res.json({ success: false });
+    }
+
+    // ✅ VERIFIED
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 try{
 const {
