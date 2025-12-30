@@ -277,7 +277,7 @@ res.json({success:true, cart});
 app.post("/api/orders/pay-and-create", async (req,res)=>{
 try{
 const order = await razorpay.orders.create({
-amount: req.body.amount100,
+amount: req.body.amount * 100,
 currency:"INR",
 receipt:"rcpt_"+Date.now()
 });
