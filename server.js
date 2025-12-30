@@ -292,7 +292,8 @@ app.post("/api/payment/verify", async (req, res) => {
     const {
       razorpay_payment_id,
       razorpay_order_id,
-      razorpay_signature
+      razorpay_signature,
+      orderData // 🔥 frontend se bhejna
     } = req.body;
 
     const sign = razorpay_order_id + "|" + razorpay_payment_id;
@@ -303,12 +304,27 @@ app.post("/api/payment/verify", async (req, res) => {
       .digest("hex");
 
     if (expected !== razorpay_signature) {
-      // ❌ FAIL — yahin fail SMS bhejna
-      return res.json({ success: false });
+      return res.json({ success: false, message:"Payment verification failed" });
     }
 
-    // ✅ VERIFIED
-    return res.json({ success: true });
+    // ✅ PAYMENT VERIFIED → CREATE ORDER
+    const order = new Order({
+      ...orderData,
+      paymentId: razorpay_payment_id,
+      paymentStatus: "paid",
+      status: "pending", // 🔥 VERY IMPORTANT
+      statusHistory: [{
+        status:"paid",
+        time:new Date()
+      }]
+    });
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      orderId: order._id
+    });
 
   } catch (err) {
     console.error(err);
