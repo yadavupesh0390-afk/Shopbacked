@@ -437,14 +437,58 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
   }
 });
 /* ================= DELIVERY ================= */
-app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-await Order.findByIdAndUpdate(req.params.id,{
-deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-status:"delivery_accepted",
-$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-});
-res.json({success:true});
+app.post("/api/orders/:id/delivery-accept", async (req, res) => {
+  try {
+    const { deliveryBoyId } = req.body;
+
+    if (!deliveryBoyId) {
+      return res.json({ success: false, message: "Delivery boy id missing" });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.json({ success: false, message: "Order not found" });
+    }
+
+    // ❌ already accepted
+    if (order.deliveryBoyId) {
+      return res.json({
+        success: false,
+        message: "Order already accepted by another delivery partner"
+      });
+    }
+
+    // ✅ DELIVERY BOY DETAIL SERVER SE LAO
+    const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);
+    if (!deliveryBoy) {
+      return res.json({
+        success: false,
+        message: "Delivery boy not found"
+      });
+    }
+
+    // 🔥 YAHI FIX HAI
+    order.deliveryBoyId     = deliveryBoy._id;
+    order.deliveryBoyName   = deliveryBoy.name;
+    order.deliveryBoyMobile = deliveryBoy.mobile;
+    order.status = "delivery_accepted";
+
+    order.statusHistory.push({
+      status: "delivery_accepted",
+      time: new Date()
+    });
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order accepted successfully"
+    });
+
+  } catch (err) {
+    console.error("delivery accept error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
