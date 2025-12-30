@@ -100,31 +100,45 @@ const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema)
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
   try{
-    console.log("SIGNUP BODY 👉", req.body);
+    let {
+      role,
+      password,
+      mobile,
+      mobile_number,
+      upi_mobile_number
+    } = req.body;
 
-    const role = req.body.role;
-    const mobile = req.body.mobile || req.body.phone; // 🔥 FIX
-    const password = req.body.password;
+    // 🔁 FRONTEND FALLBACK SUPPORT
+    mobile = mobile || mobile_number || upi_mobile_number;
 
     if(!role || !mobile || !password){
       return res.json({
         success:false,
-        message:"Missing fields",
-        received:req.body
+        message:"Missing required fields"
       });
     }
 
     const exists = await User.findOne({ mobile, role });
     if(exists){
-      return res.json({ success:false, message:"User already exists" });
+      return res.json({
+        success:false,
+        message:"User already exists"
+      });
     }
 
     const hashed = await bcrypt.hash(password,10);
 
     const user = await User.create({
-      ...req.body,
+      role,
       mobile,
-      password: hashed
+      password: hashed,
+
+      // optional fields
+      name: req.body.name || "",
+      shop_current_location:
+        req.body.shop_current_location ||
+        req.body.current_live_location ||
+        ""
     });
 
     const token = jwt.sign(
@@ -136,12 +150,7 @@ app.post("/api/signup", async (req,res)=>{
     res.json({
       success:true,
       token,
-      user:{
-        _id:user._id,
-        role:user.role,
-        mobile:user.mobile,
-        name:user.name || ""
-      }
+      userId:user._id
     });
 
   }catch(err){
