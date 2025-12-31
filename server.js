@@ -309,17 +309,17 @@ app.post("/api/payment/verify", async (req, res) => {
 
     // ✅ PAYMENT VERIFIED → CREATE ORDER
     const order = new Order({
-      ...orderData,
-      paymentId: razorpay_payment_id,
-      paymentStatus: "paid",
-      status: "pending", // 🔥 VERY IMPORTANT
-      statusHistory: [{
-        status:"paid",
-        time:new Date()
-      }]
-    });
+  ...orderData,
+  paymentId: razorpay_payment_id,
 
-    await order.save();
+  status: "paid", // ✅ FIXED
+  statusHistory: [{
+    status: "paid",
+    time: new Date()
+  }]
+});
+
+await order.save();
 
     return res.json({
       success: true,
