@@ -450,32 +450,31 @@ app.post("/api/orders/:id/delivery-accept", async (req, res) => {
       return res.json({ success: false, message: "Order not found" });
     }
 
-    // ❌ already accepted
     if (order.deliveryBoyId) {
       return res.json({
         success: false,
-        message: "Order already accepted by another delivery partner"
+        message: "Order already accepted"
       });
     }
 
-    // ✅ DELIVERY BOY DETAIL SERVER SE LAO
-    const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);
+    // ✅ CORRECT MODEL
+    const deliveryBoy = await DeliveryProfile.findOne({ deliveryBoyId });
     if (!deliveryBoy) {
       return res.json({
         success: false,
-        message: "Delivery boy not found"
+        message: "Delivery profile not found"
       });
     }
 
-    // 🔥 YAHI FIX HAI
-    order.deliveryBoyId     = deliveryBoy._id;
+    // ✅ SAVE REAL NAME
+    order.deliveryBoyId     = deliveryBoy.deliveryBoyId;
     order.deliveryBoyName   = deliveryBoy.name;
     order.deliveryBoyMobile = deliveryBoy.mobile;
     order.status = "delivery_accepted";
 
     order.statusHistory.push({
       status: "delivery_accepted",
-      time: new Date()
+      time: Date.now()
     });
 
     await order.save();
@@ -487,10 +486,9 @@ app.post("/api/orders/:id/delivery-accept", async (req, res) => {
 
   } catch (err) {
     console.error("delivery accept error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false });
   }
 });
-
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try{
     const order = await Order.findById(req.params.orderId);
