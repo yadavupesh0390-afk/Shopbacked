@@ -439,13 +439,52 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 });
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-await Order.findByIdAndUpdate(req.params.id,{
-deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-status:"delivery_accepted",
-$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-});
-res.json({success:true});
+  try{
+    const { deliveryBoyId } = req.body;
+
+    if(!deliveryBoyId){
+      return res.json({
+        success:false,
+        message:"Delivery boy ID required"
+      });
+    }
+
+    // 🔎 Delivery boy profile se data uthao
+    const profile = await DeliveryProfile.findOne({ deliveryBoyId });
+
+    if(!profile){
+      return res.json({
+        success:false,
+        message:"Delivery boy profile not found"
+      });
+    }
+
+    await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        deliveryBoyId,
+        deliveryBoyName: profile.name,        // ✅ REAL NAME
+        deliveryBoyMobile: profile.mobile,    // ✅ REAL MOBILE
+        status: "delivery_accepted",
+        $push: {
+          statusHistory: {
+            status: "delivery_accepted",
+            time: Date.now()
+          }
+        }
+      },
+      { new:true }
+    );
+
+    res.json({
+      success:true,
+      message:"Order accepted by delivery boy"
+    });
+
+  }catch(err){
+    console.error("Delivery Accept Error:", err);
+    res.status(500).json({ success:false });
+  }
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
