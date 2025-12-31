@@ -337,159 +337,60 @@ res.status(500).json({ success: false });
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 try{
 const {
-products,
-productId,
-paymentId,
-vehicleType,
-retailerName,
-retailerMobile,
-retailerAddress,
-totalAmount,
-deliveryCharge
+products, productId, paymentId, vehicleType,
+retailerName, retailerMobile, retailerAddress,
+totalAmount, deliveryCharge
 } = req.body;
 
-// 🔴 SINGLE PRODUCT  
-if(productId){  
-  const product = await Product.findById(productId);  
-  if(!product) return res.json({ success:false });  
-
-  const order = await Order.create({  
-    paymentId,  
-
-    // ✅ WHOLESALER INFO (CRITICAL)  
-    wholesalerId: product.wholesalerId,  
-    wholesalerName: product.shopName || "",  
-    wholesalerMobile: product.mobile || "",  
-    wholesalerAddress: product.address || "",  
-
-    // ✅ PRODUCT  
-    productId: product._id,  
-    productName: product.productName,  
-    productImg: product.image,  
-    price: product.price,  
-
-    // ✅ RETAILER  
-    retailerName,  
-    retailerMobile,  
-    retailerAddress,  
-
-    vehicleType,  
-    deliveryCharge,  
-    totalAmount,  
-
-    // ✅ STATUS MUST BE "paid"  
-    status: "paid",  
-    statusHistory: [{  
-      status: "paid",  
-      time: Date.now()  
-    }]  
-  });  
-
-  return res.json({ success:true, order });  
-}  
-
-// 🔴 CART ORDER  
-if(products && products.length > 0){  
-  const orders = [];  
-
-  for(const p of products){  
-    const product = await Product.findById(p._id);  
-    if(!product) continue;  
-
-    const order = await Order.create({  
-      paymentId,  
-
-      wholesalerId: product.wholesalerId,  
-      wholesalerName: product.shopName || "",  
-      wholesalerMobile: product.mobile || "",  
-      wholesalerAddress: product.address || "",  
-
-      productId: product._id,  
-      productName: product.productName,  
-      productImg: product.image,  
-      price: product.price,  
-
-      retailerName,  
-      retailerMobile,  
-      retailerAddress,  
-
-      vehicleType,  
-      deliveryCharge,  
-      totalAmount,  
-
-      status: "paid",  
-      statusHistory: [{  
-        status: "paid",  
-        time: Date.now()  
-      }]  
-    });  
-
-    orders.push(order);  
-  }  
-
-  return res.json({ success:true, orders });  
-}  
-
-res.json({ success:false });
-
-}catch(err){
-console.error("Confirm Payment Error:", err);
-res.status(500).json({ success:false });
-}
+// Single product order
+if(productId){
+const product = await Product.findById(productId);
+if(!product) return res.json({success:false});
+const order = await Order.create({
+productId,
+productName: product.productName,
+productImg: product.image,
+price: product.price,
+retailerName, retailerMobile, retailerAddress,
+vehicleType, deliveryCharge, totalAmount,
+paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]
 });
+return res.json({success:true, order});
+}
+
+// Cart order (multiple products)    
+if(products && products.length>0){    
+    const orders = [];    
+    for(let p of products){    
+        const order = await Order.create({    
+            productId: p._id,    
+            productName: p.productName,    
+            productImg: p.image,    
+            price: p.price,    
+            retailerName, retailerMobile, retailerAddress,    
+            vehicleType, deliveryCharge, totalAmount,    
+            paymentId, status:"paid", statusHistory:[{status:"paid",time:Date.now()}]    
+        });    
+        orders.push(order);    
+    }    
+    return res.json({success:true, orders});    
+}    
+
+res.json({success:false});
+
+}catch(err){ console.log(err); res.json({success:false}); }
+
+});
+
 /* ================= DELIVERY ================= */
-app.post("/api/orders/:id/delivery-accept", async (req, res) => {
-try {
-const { deliveryBoyId } = req.body;
-
-if (!deliveryBoyId) {  
-  return res.json({ success: false, message: "Delivery boy id missing" });  
-}  
-
-const order = await Order.findById(req.params.id);  
-if (!order) {  
-  return res.json({ success: false, message: "Order not found" });  
-}  
-
-// ❌ already accepted  
-if (order.deliveryBoyId) {  
-  return res.json({  
-    success: false,  
-    message: "Order already accepted by another delivery partner"  
-  });  
-}  
-
-// ✅ DELIVERY BOY DETAIL SERVER SE LAO  
-const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);  
-if (!deliveryBoy) {  
-  return res.json({  
-    success: false,  
-    message: "Delivery boy not found"  
-  });  
-}  
-
-// 🔥 YAHI FIX HAI  
-order.deliveryBoyId     = deliveryBoy._id;  
-order.deliveryBoyName   = deliveryBoy.name;  
-order.deliveryBoyMobile = deliveryBoy.mobile;  
-order.status = "delivery_accepted";  
-
-order.statusHistory.push({  
-  status: "delivery_accepted",  
-  time: new Date()  
-});  
-
-await order.save();  
-
-res.json({  
-  success: true,  
-  message: "Order accepted successfully"  
+app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
+const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+await Order.findByIdAndUpdate(req.params.id,{
+deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
+status:"delivery_accepted",
+$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 });
-
-} catch (err) {
-console.error("delivery accept error:", err);
-res.status(500).json({ success: false, message: "Server error" });
-}
+res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
