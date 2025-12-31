@@ -439,107 +439,54 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 });
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-  try{
-    const { deliveryBoyId } = req.body;
-
-    if(!deliveryBoyId){
-      return res.json({
-        success:false,
-        message:"Delivery boy ID required"
-      });
-    }
-
-    // 🔎 Delivery boy profile se data uthao
-    const profile = await DeliveryProfile.findOne({ deliveryBoyId });
-
-    if(!profile){
-      return res.json({
-        success:false,
-        message:"Delivery boy profile not found"
-      });
-    }
-
-    await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        deliveryBoyId,
-        deliveryBoyName: profile.name,        // ✅ REAL NAME
-        deliveryBoyMobile: profile.mobile,    // ✅ REAL MOBILE
-        status: "delivery_accepted",
-        $push: {
-          statusHistory: {
-            status: "delivery_accepted",
-            time: Date.now()
-          }
-        }
-      },
-      { new:true }
-    );
-
-    res.json({
-      success:true,
-      message:"Order accepted by delivery boy"
-    });
-
-  }catch(err){
-    console.error("Delivery Accept Error:", err);
-    res.status(500).json({ success:false });
-  }
+const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+await Order.findByIdAndUpdate(req.params.id,{
+deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
+status:"delivery_accepted",
+$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
+});
+res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-  try{
-    const order = await Order.findById(req.params.orderId);
+try{
+const order = await Order.findById(req.params.orderId);
+if(!order){
+return res.json({ success:false, message:"Order not found" });
+}
 
-    if(!order){
-      return res.json({ success:false, message:"Order not found" });
-    }
+// Sirf picked_up ya delivery_code_generated allow  
+if(!["picked_up","delivery_code_generated"].includes(order.status)){  
+  return res.json({ success:false, message:"Invalid order state" });  
+}  
 
-    if(!["picked_up","delivery_code_generated"].includes(order.status)){
-      return res.json({ success:false, message:"Invalid order state" });
-    }
+// 🔐 New 4-digit code  
+const code = Math.floor(1000 + Math.random()*9000).toString();  
 
-    // 🔐 4 digit code
-    const code = Math.floor(1000 + Math.random()*9000).toString();
+order.deliveryCode = code;  
+order.deliveryCodeTime = new Date();  
+order.status = "delivery_code_generated";  
 
-    order.deliveryCode = code;
-    order.deliveryCodeTime = new Date();
-    order.status = "delivery_code_generated";
+order.statusHistory.push({  
+  status:"delivery_code_generated",  
+  time:new Date()  
+});  
 
-    order.statusHistory.push({
-      status:"delivery_code_generated",
-      time:Date.now()
-    });
+await order.save();  
 
-    await order.save();
+// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
+// sendToRetailer(order.retailerMobile, code);  
 
-    // ✅ Delivery boy data (profile-based)
-    let partnerName = "Delivery Partner";
-    let partnerMobile = "";
+res.json({  
+  success:true,  
+  message:"Delivery code generated & sent",  
+  code // ⚠️ testing only  
+});
 
-    if(order.deliveryBoyId){
-      const profile = await DeliveryProfile.findOne({
-        deliveryBoyId: order.deliveryBoyId
-      });
-
-      if(profile){
-        partnerName = profile.name;
-        partnerMobile = profile.mobile;
-      }
-    }
-
-    res.json({
-      success:true,
-      message:"Delivery code generated & sent",
-      code, // ⚠️ testing only
-      deliveryBoyName: partnerName,
-      deliveryBoyMobile: partnerMobile
-    });
-
-  }catch(err){
-    console.error(err);
-    res.status(500).json({ success:false, message:"Server error" });
-  }
+}catch(err){
+console.error(err);
+res.status(500).json({ success:false, message:"Server error" });
+}
 });
 
 /* ================= PICKUP ORDER ================= */
