@@ -554,64 +554,96 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
 });
 
 
-app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
-  try{
+app.post("/api/orders/verify-delivery-code/:orderId", async (req, res) => {
+  try {
     const { code } = req.body;
+
+    if (!code) {
+      return res.json({
+        success: false,
+        message: "Delivery code required"
+      });
+    }
+
     const order = await Order.findById(req.params.orderId);
 
-    if(!order){
-      return res.json({ success:false, message:"Order not found" });
+    if (!order) {
+      return res.json({
+        success: false,
+        message: "Order not found"
+      });
     }
 
-    if(order.status !== "delivery_code_generated"){
-      return res.json({ success:false, message:"Order not ready for delivery" });
+    // ❌ Status check
+    if (order.status !== "delivery_code_generated") {
+      return res.json({
+        success: false,
+        message: "Order not ready for delivery"
+      });
     }
 
-    // ⏱️ 10 minute expiry
+    /* ================= CODE EXPIRY ================= */
     const TEN_MIN = 10 * 60 * 1000;
-    const expired = Date.now() - new Date(order.deliveryCodeTime).getTime() > TEN_MIN;
+    const expired =
+      Date.now() - new Date(order.deliveryCodeTime).getTime() > TEN_MIN;
 
-    // ❌ CODE EXPIRED
-    if(expired){
-      order.status = "picked_up";          // 🔥 AUTO FIX
+    if (expired) {
+      order.status = "picked_up";
       order.deliveryCode = null;
       order.deliveryCodeTime = null;
 
       order.statusHistory.push({
-        status:"code_expired",
-        time:new Date()
+        status: "code_expired",
+        time: new Date()
       });
 
       await order.save();
 
       return res.json({
-        success:false,
-        message:"Delivery code expired. Generate new code."
+        success: false,
+        message: "Delivery code expired. Please generate a new code."
       });
     }
 
-    // ❌ WRONG CODE
-    if(order.deliveryCode !== code){
-      return res.json({ success:false, message:"Wrong delivery code" });
+    /* ================= WRONG CODE ================= */
+    if (order.deliveryCode !== code) {
+      return res.json({
+        success: false,
+        message: "Wrong delivery code"
+      });
     }
 
-    // ✅ CORRECT CODE → DELIVERED
+    /* ================= SUCCESS → DELIVERED ================= */
     order.status = "delivered";
     order.deliveryCode = null;
     order.deliveryCodeTime = null;
 
     order.statusHistory.push({
-      status:"delivered",
-      time:new Date()
+      status: "delivered",
+      time: new Date()
     });
 
     await order.save();
 
-    res.json({ success:true, message:"Order delivered successfully" });
+    // 🔥 DELIVERY PARTNER NAME SAFE
+    const partner =
+      order.deliveryBoyId && order.deliveryBoyName
+        ? order.deliveryBoyName
+        : "Not assigned yet";
 
-  }catch(err){
-    console.error(err);
-    res.status(500).json({ success:false, message:"Server error" });
+    return res.json({
+      success: true,
+      message: "Order delivered successfully",
+      deliveryPartner: partner,
+      orderId: order._id
+    });
+
+  } catch (err) {
+    console.error("Verify Delivery Code Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 });
 app.post("/api/delivery/profile/save", async (req, res) => {
