@@ -9,7 +9,7 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-
+const crypto = require("crypto");
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB connected ✅"))
@@ -19,7 +19,7 @@ mongoose.connect(process.env.MONGO_URI)
 const razorpay = new Razorpay({
 key_id: process.env.RAZORPAY_KEY_ID,
 key_secret: process.env.RAZORPAY_KEY_SECRET
-});
+}); 
 
 /* ================= USER ================= */
 const userSchema = new mongoose.Schema({
@@ -426,15 +426,144 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 
         orders.push(order);
       }
+/* ================= PAYMENT ================= */
 
-      return res.json({ success:true, orders });
-    }
 
-    res.json({ success:false });
+// Razorpay order create
+app.post("/api/orders/pay-and-create", async (req,res)=>{
+  try{
+    const { amount } = req.body;
+    if(!amount) return res.json({ success:false, message:"Amount required" });
+
+    const order = await razorpay.orders.create({
+      amount: amount * 100, // paise
+      currency:"INR",
+      receipt:"rcpt_"+Date.now()
+    });
+
+    res.json({
+      success:true,
+      order,
+      key:process.env.RAZORPAY_KEY_ID,
+      amount:order.amount
+    });
 
   }catch(err){
-    console.error("Confirm Payment Error:", err);
+    console.error("Razorpay Create Order Error:", err);
     res.status(500).json({ success:false });
+  }
+});
+
+// Razorpay payment verify
+app.post("/api/payment/verify", async (req, res) => {
+  try {
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderData } = req.body;
+
+    if(!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !orderData){
+      return res.json({ success:false, message:"Missing fields" });
+    }
+
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if(expected !== razorpay_signature){
+      return res.json({ success:false, message:"Payment verification failed" });
+    }
+
+    // ✅ Payment verified → create order(s)
+    const { productId, products, paymentId, vehicleType, retailerName, retailerMobile, retailerAddress, deliveryCharge } = orderData;
+
+    if(productId){
+      // Single product
+      const product = await Product.findById(productId);
+      if(!product) return res.json({ success:false, message:"Product not found" });
+
+      const totalAmount = product.price + (deliveryCharge || 0);
+
+      const order = await Order.create({
+        paymentId,
+        wholesalerId: product.wholesalerId,
+        wholesalerName: product.shopName || "",
+        wholesalerMobile: product.mobile || "",
+        wholesalerAddress: product.address || "",
+
+        productId: product._id,
+        productName: product.productName,
+        productImg: product.image,
+        price: product.price,
+
+        retailerName,
+        retailerMobile,
+        retailerAddress,
+
+        vehicleType,
+        deliveryCharge: deliveryCharge || 0,
+        totalAmount,
+
+        status: "paid",
+        statusHistory:[{ status:"paid", time: Date.now() }]
+      });
+
+      return res.json({ success:true, order });
+
+    } else if(products && products.length > 0){
+      // Cart order
+      const orders = [];
+
+      for(const p of products){
+        const product = await Product.findById(p._id);
+        if(!product){
+          // skip invalid product, but log
+          console.warn("Product not found:", p._id);
+          continue;
+        }
+
+        const itemTotal = product.price + (deliveryCharge || 0);
+
+        const order = await Order.create({
+          paymentId,
+          wholesalerId: product.wholesalerId,
+          wholesalerName: product.shopName || "",
+          wholesalerMobile: product.mobile || "",
+          wholesalerAddress: product.address || "",
+
+          productId: product._id,
+          productName: product.productName,
+          productImg: product.image,
+          price: product.price,
+
+          retailerName,
+          retailerMobile,
+          retailerAddress,
+
+          vehicleType,
+          deliveryCharge: deliveryCharge || 0,
+          totalAmount: itemTotal,
+
+          status: "paid",
+          statusHistory:[{ status:"paid", time: Date.now() }]
+        });
+
+        orders.push(order);
+      }
+
+      if(orders.length === 0){
+        return res.json({ success:false, message:"No valid products to create order" });
+      }
+
+      return res.json({ success:true, orders });
+
+    } else {
+      return res.json({ success:false, message:"No products provided" });
+    }
+
+  } catch(err){
+    console.error("Confirm Payment Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
   }
 });
 /* ================= DELIVERY ================= */
