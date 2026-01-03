@@ -1,4 +1,4 @@
-require("dotenv").config();
+pmrequire("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -274,131 +274,106 @@ app.get("/api/cart/:retailerId", async (req,res)=>{
 const cart = await Cart.findOne({retailerId:req.params.retailerId});
 res.json({success:true, cart});
 });
-
 /* ================= PAYMENT ================= */
-app.post("/api/orders/pay-and-create", async (req,res)=>{
-try{
-const order = await razorpay.orders.create({
-amount: req.body.amount * 100,
-currency:"INR",
-receipt:"rcpt_"+Date.now()
-});
-res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amount});
-}catch(err){ console.log(err); res.json({success:false}); }
-});
-
 const crypto = require("crypto");
 
-app.post("/api/payment/verify", async (req, res) => {
-try {
-const {
-razorpay_payment_id,
-razorpay_order_id,
-razorpay_signature,
-orderData // 🔥 frontend se bhejna
-} = req.body;
-
-const sign = razorpay_order_id + "|" + razorpay_payment_id;  
-
-const expected = crypto  
-  .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)  
-  .update(sign)  
-  .digest("hex");  
-
-if (expected !== razorpay_signature) {  
-  return res.json({ success: false, message:"Payment verification failed" });  
-}  
-
-// ✅ PAYMENT VERIFIED → CREATE ORDER  
-const order = new Order({  
-  ...orderData,  
-  paymentId: razorpay_payment_id,  
-  paymentStatus: "paid",  
-  status: "pending", // 🔥 VERY IMPORTANT  
-  statusHistory: [{  
-    status:"paid",  
-    time:new Date()  
-  }]  
-});  
-
-await order.save();  
-
-return res.json({  
-  success: true,  
-  orderId: order._id  
-});
-
-} catch (err) {
-console.error(err);
-res.status(500).json({ success: false });
-}
-});
-
-app.post("/api/orders/confirm-after-payment", async (req,res)=>{
+// Razorpay order create
+app.post("/api/orders/pay-and-create", async (req,res)=>{
   try{
-    const {
-      products,
-      productId,
-      paymentId,
-      vehicleType,
-      retailerName,
-      retailerMobile,
-      retailerAddress,
-      totalAmount,
-      deliveryCharge
-    } = req.body;
+    const { amount } = req.body;
+    if(!amount) return res.json({ success:false, message:"Amount required" });
 
-    // 🔴 SINGLE PRODUCT
+    const order = await razorpay.orders.create({
+      amount: amount * 100, // paise
+      currency:"INR",
+      receipt:"rcpt_"+Date.now()
+    });
+
+    res.json({
+      success:true,
+      order,
+      key:process.env.RAZORPAY_KEY_ID,
+      amount:order.amount
+    });
+
+  }catch(err){
+    console.error("Razorpay Create Order Error:", err);
+    res.status(500).json({ success:false });
+  }
+});
+
+// Razorpay payment verify
+app.post("/api/payment/verify", async (req, res) => {
+  try {
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderData } = req.body;
+
+    if(!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !orderData){
+      return res.json({ success:false, message:"Missing fields" });
+    }
+
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if(expected !== razorpay_signature){
+      return res.json({ success:false, message:"Payment verification failed" });
+    }
+
+    // ✅ Payment verified → create order(s)
+    const { productId, products, paymentId, vehicleType, retailerName, retailerMobile, retailerAddress, deliveryCharge } = orderData;
+
     if(productId){
+      // Single product
       const product = await Product.findById(productId);
-      if(!product) return res.json({ success:false });
+      if(!product) return res.json({ success:false, message:"Product not found" });
+
+      const totalAmount = product.price + (deliveryCharge || 0);
 
       const order = await Order.create({
         paymentId,
-
-        // ✅ WHOLESALER INFO (CRITICAL)
         wholesalerId: product.wholesalerId,
         wholesalerName: product.shopName || "",
         wholesalerMobile: product.mobile || "",
         wholesalerAddress: product.address || "",
 
-        // ✅ PRODUCT
         productId: product._id,
         productName: product.productName,
         productImg: product.image,
         price: product.price,
 
-        // ✅ RETAILER
         retailerName,
         retailerMobile,
         retailerAddress,
 
         vehicleType,
-        deliveryCharge,
+        deliveryCharge: deliveryCharge || 0,
         totalAmount,
 
-        // ✅ STATUS MUST BE "paid"
         status: "paid",
-        statusHistory: [{
-          status: "paid",
-          time: Date.now()
-        }]
+        statusHistory:[{ status:"paid", time: Date.now() }]
       });
 
       return res.json({ success:true, order });
-    }
 
-    // 🔴 CART ORDER
-    if(products && products.length > 0){
+    } else if(products && products.length > 0){
+      // Cart order
       const orders = [];
 
       for(const p of products){
         const product = await Product.findById(p._id);
-        if(!product) continue;
+        if(!product){
+          // skip invalid product, but log
+          console.warn("Product not found:", p._id);
+          continue;
+        }
+
+        const itemTotal = product.price + (deliveryCharge || 0);
 
         const order = await Order.create({
           paymentId,
-
           wholesalerId: product.wholesalerId,
           wholesalerName: product.shopName || "",
           wholesalerMobile: product.mobile || "",
@@ -414,27 +389,29 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
           retailerAddress,
 
           vehicleType,
-          deliveryCharge,
-          totalAmount,
+          deliveryCharge: deliveryCharge || 0,
+          totalAmount: itemTotal,
 
           status: "paid",
-          statusHistory: [{
-            status: "paid",
-            time: Date.now()
-          }]
+          statusHistory:[{ status:"paid", time: Date.now() }]
         });
 
         orders.push(order);
       }
 
+      if(orders.length === 0){
+        return res.json({ success:false, message:"No valid products to create order" });
+      }
+
       return res.json({ success:true, orders });
+
+    } else {
+      return res.json({ success:false, message:"No products provided" });
     }
 
-    res.json({ success:false });
-
-  }catch(err){
+  } catch(err){
     console.error("Confirm Payment Error:", err);
-    res.status(500).json({ success:false });
+    res.status(500).json({ success:false, message:"Server error" });
   }
 });
 /* ================= DELIVERY ================= */
