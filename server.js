@@ -290,48 +290,37 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 const crypto = require("crypto");
 
 app.post("/api/payment/verify", async (req, res) => {
-try {
-const {
-razorpay_payment_id,
-razorpay_order_id,
-razorpay_signature,
-orderData // 🔥 frontend se bhejna
-} = req.body;
+  try {
+    const {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature
+    } = req.body;
 
-const sign = razorpay_order_id + "|" + razorpay_payment_id;  
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
 
-const expected = crypto  
-  .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)  
-  .update(sign)  
-  .digest("hex");  
+    const expected = require("crypto")
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
 
-if (expected !== razorpay_signature) {  
-  return res.json({ success: false, message:"Payment verification failed" });  
-}  
+    if (expected !== razorpay_signature) {
+      return res.json({
+        success: false,
+        message: "Payment verification failed"
+      });
+    }
 
-// ✅ PAYMENT VERIFIED → CREATE ORDER  
-const order = new Order({  
-  ...orderData,  
-  paymentId: razorpay_payment_id,  
-  paymentStatus: "paid",  
-  status: "pending", // 🔥 VERY IMPORTANT  
-  statusHistory: [{  
-    status:"paid",  
-    time:new Date()  
-  }]  
-});  
+    // ✅ ONLY VERIFY – NO ORDER CREATION HERE
+    return res.json({
+      success: true,
+      paymentId: razorpay_payment_id
+    });
 
-await order.save();  
-
-return res.json({  
-  success: true,  
-  orderId: order._id  
-});
-
-} catch (err) {
-console.error(err);
-res.status(500).json({ success: false });
-}
+  } catch (err) {
+    console.error("Verify Error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
