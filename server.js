@@ -290,37 +290,48 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 const crypto = require("crypto");
 
 app.post("/api/payment/verify", async (req, res) => {
-  try {
-    const {
-      razorpay_payment_id,
-      razorpay_order_id,
-      razorpay_signature
-    } = req.body;
+try {
+const {
+razorpay_payment_id,
+razorpay_order_id,
+razorpay_signature,
+orderData // 🔥 frontend se bhejna
+} = req.body;
 
-    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+const sign = razorpay_order_id + "|" + razorpay_payment_id;  
 
-    const expected = require("crypto")
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(sign)
-      .digest("hex");
+const expected = crypto  
+  .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)  
+  .update(sign)  
+  .digest("hex");  
 
-    if (expected !== razorpay_signature) {
-      return res.json({
-        success: false,
-        message: "Payment verification failed"
-      });
-    }
+if (expected !== razorpay_signature) {  
+  return res.json({ success: false, message:"Payment verification failed" });  
+}  
 
-    // ✅ ONLY VERIFY – NO ORDER CREATION HERE
-    return res.json({
-      success: true,
-      paymentId: razorpay_payment_id
-    });
+// ✅ PAYMENT VERIFIED → CREATE ORDER  
+const order = new Order({  
+  ...orderData,  
+  paymentId: razorpay_payment_id,  
+  paymentStatus: "paid",  
+  status: "pending", // 🔥 VERY IMPORTANT  
+  statusHistory: [{  
+    status:"paid",  
+    time:new Date()  
+  }]  
+});  
 
-  } catch (err) {
-    console.error("Verify Error:", err);
-    res.status(500).json({ success: false });
-  }
+await order.save();  
+
+return res.json({  
+  success: true,  
+  orderId: order._id  
+});
+
+} catch (err) {
+console.error(err);
+res.status(500).json({ success: false });
+}
 });
 
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
@@ -428,95 +439,53 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 });
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-try{
-  let { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-
-  if(!deliveryBoyId){
-    return res.json({ success:false, message:"DeliveryBoyId required" });
-  }
-
-  // 🧠 FALLBACK: agar name/mobile frontend se nahi aaye
-  if(!deliveryBoyName || !deliveryBoyMobile){
-    const profile = await DeliveryProfile.findOne({ deliveryBoyId });
-    if(profile){
-      deliveryBoyName = deliveryBoyName || profile.name;
-      deliveryBoyMobile = deliveryBoyMobile || profile.mobile;
-    }
-  }
-
-  await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      deliveryBoyId,
-      deliveryBoyName,
-      deliveryBoyMobile,
-      status:"delivery_accepted",
-      $push:{
-        statusHistory:{
-          status:"delivery_accepted",
-          time:Date.now()
-        }
-      }
-    },
-    { new:true }
-  );
-
-  res.json({
-    success:true,
-    message:"Order accepted"
-  });
-
-}catch(err){
-  console.error("Delivery Accept Error:", err);
-  res.status(500).json({ success:false });
-}
+const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+await Order.findByIdAndUpdate(req.params.id,{
+deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
+status:"delivery_accepted",
+$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
 });
+res.json({success:true});
+});
+
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
 try{
-  const order = await Order.findById(req.params.orderId);
-  if(!order){
-    return res.json({ success:false, message:"Order not found" });
-  }
+const order = await Order.findById(req.params.orderId);
+if(!order){
+return res.json({ success:false, message:"Order not found" });
+}
 
-  // Sirf picked_up ya delivery_code_generated allow
-  if(!["picked_up","delivery_code_generated"].includes(order.status)){
-    return res.json({ success:false, message:"Invalid order state" });
-  }
+// Sirf picked_up ya delivery_code_generated allow  
+if(!["picked_up","delivery_code_generated"].includes(order.status)){  
+  return res.json({ success:false, message:"Invalid order state" });  
+}  
 
-  // 🔐 New 4-digit code
-  const code = Math.floor(1000 + Math.random()*9000).toString();
+// 🔐 New 4-digit code  
+const code = Math.floor(1000 + Math.random()*9000).toString();  
 
-  order.deliveryCode = code;
-  order.deliveryCodeTime = new Date();
-  order.status = "delivery_code_generated";
+order.deliveryCode = code;  
+order.deliveryCodeTime = new Date();  
+order.status = "delivery_code_generated";  
 
-  order.statusHistory.push({
-    status:"delivery_code_generated",
-    time:new Date()
-  });
+order.statusHistory.push({  
+  status:"delivery_code_generated",  
+  time:new Date()  
+});  
 
-  await order.save();
+await order.save();  
 
-  // ✅ DELIVERY BOY DETAILS (SAFE)
-  const partnerName =
-    order.deliveryBoyName && order.deliveryBoyName.trim() !== ""
-      ? order.deliveryBoyName
-      : "Delivery Partner";
+// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
+// sendToRetailer(order.retailerMobile, code);  
 
-  const partnerMobile =
-    order.deliveryBoyMobile || "";
-
-  res.json({
-    success:true,
-    message:"Delivery code generated & sent",
-    code,                 // ⚠️ testing only
-    deliveryBoyName: partnerName,
-    deliveryBoyMobile: partnerMobile
-  });
+res.json({  
+  success:true,  
+  message:"Delivery code generated & sent",  
+  code // ⚠️ testing only  
+});
 
 }catch(err){
-  console.error(err);
-  res.status(500).json({ success:false, message:"Server error" });
+console.error(err);
+res.status(500).json({ success:false, message:"Server error" });
 }
 });
 
