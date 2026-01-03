@@ -439,53 +439,95 @@ app.post("/api/orders/confirm-after-payment", async (req,res)=>{
 });
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-await Order.findByIdAndUpdate(req.params.id,{
-deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-status:"delivery_accepted",
-$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-});
-res.json({success:true});
-});
-
-app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
 try{
-const order = await Order.findById(req.params.orderId);
-if(!order){
-return res.json({ success:false, message:"Order not found" });
-}
+  let { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
 
-// Sirf picked_up ya delivery_code_generated allow  
-if(!["picked_up","delivery_code_generated"].includes(order.status)){  
-  return res.json({ success:false, message:"Invalid order state" });  
-}  
+  if(!deliveryBoyId){
+    return res.json({ success:false, message:"DeliveryBoyId required" });
+  }
 
-// 🔐 New 4-digit code  
-const code = Math.floor(1000 + Math.random()*9000).toString();  
+  // 🧠 FALLBACK: agar name/mobile frontend se nahi aaye
+  if(!deliveryBoyName || !deliveryBoyMobile){
+    const profile = await DeliveryProfile.findOne({ deliveryBoyId });
+    if(profile){
+      deliveryBoyName = deliveryBoyName || profile.name;
+      deliveryBoyMobile = deliveryBoyMobile || profile.mobile;
+    }
+  }
 
-order.deliveryCode = code;  
-order.deliveryCodeTime = new Date();  
-order.status = "delivery_code_generated";  
+  await Order.findByIdAndUpdate(
+    req.params.id,
+    {
+      deliveryBoyId,
+      deliveryBoyName,
+      deliveryBoyMobile,
+      status:"delivery_accepted",
+      $push:{
+        statusHistory:{
+          status:"delivery_accepted",
+          time:Date.now()
+        }
+      }
+    },
+    { new:true }
+  );
 
-order.statusHistory.push({  
-  status:"delivery_code_generated",  
-  time:new Date()  
-});  
-
-await order.save();  
-
-// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
-// sendToRetailer(order.retailerMobile, code);  
-
-res.json({  
-  success:true,  
-  message:"Delivery code generated & sent",  
-  code // ⚠️ testing only  
-});
+  res.json({
+    success:true,
+    message:"Order accepted"
+  });
 
 }catch(err){
-console.error(err);
-res.status(500).json({ success:false, message:"Server error" });
+  console.error("Delivery Accept Error:", err);
+  res.status(500).json({ success:false });
+}
+});
+app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
+try{
+  const order = await Order.findById(req.params.orderId);
+  if(!order){
+    return res.json({ success:false, message:"Order not found" });
+  }
+
+  // Sirf picked_up ya delivery_code_generated allow
+  if(!["picked_up","delivery_code_generated"].includes(order.status)){
+    return res.json({ success:false, message:"Invalid order state" });
+  }
+
+  // 🔐 New 4-digit code
+  const code = Math.floor(1000 + Math.random()*9000).toString();
+
+  order.deliveryCode = code;
+  order.deliveryCodeTime = new Date();
+  order.status = "delivery_code_generated";
+
+  order.statusHistory.push({
+    status:"delivery_code_generated",
+    time:new Date()
+  });
+
+  await order.save();
+
+  // ✅ DELIVERY BOY DETAILS (SAFE)
+  const partnerName =
+    order.deliveryBoyName && order.deliveryBoyName.trim() !== ""
+      ? order.deliveryBoyName
+      : "Delivery Partner";
+
+  const partnerMobile =
+    order.deliveryBoyMobile || "";
+
+  res.json({
+    success:true,
+    message:"Delivery code generated & sent",
+    code,                 // ⚠️ testing only
+    deliveryBoyName: partnerName,
+    deliveryBoyMobile: partnerMobile
+  });
+
+}catch(err){
+  console.error(err);
+  res.status(500).json({ success:false, message:"Server error" });
 }
 });
 
