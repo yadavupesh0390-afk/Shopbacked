@@ -415,184 +415,170 @@ app.post("/api/payment/verify", async (req, res) => {
   }
 });
 /* ================= DELIVERY ================= */
+
+// 1️⃣ Delivery boy accepts the order
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-await Order.findByIdAndUpdate(req.params.id,{
-deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-status:"delivery_accepted",
-$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-});
-res.json({success:true});
+  try{
+    const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
+    if(!deliveryBoyId || !deliveryBoyName || !deliveryBoyMobile){
+      return res.status(400).json({ success:false, message:"Delivery boy info required" });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if(!order) return res.json({ success:false, message:"Order not found" });
+
+    // Only orders in "paid" status can be accepted
+    if(order.status !== "paid"){
+      return res.json({ success:false, message:"Order cannot be accepted" });
+    }
+
+    order.deliveryBoyId = deliveryBoyId;
+    order.deliveryBoyName = deliveryBoyName;
+    order.deliveryBoyMobile = deliveryBoyMobile;
+    order.status = "delivery_accepted";
+    order.statusHistory.push({ status:"delivery_accepted", time: Date.now() });
+
+    await order.save();
+    res.json({ success:true, message:"Order accepted for delivery" });
+
+  }catch(err){
+    console.error("Delivery Accept Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
 
+// 2️⃣ Generate 4-digit delivery code
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-try{
-const order = await Order.findById(req.params.orderId);
-if(!order){
-return res.json({ success:false, message:"Order not found" });
-}
+  try{
+    const order = await Order.findById(req.params.orderId);
+    if(!order) return res.json({ success:false, message:"Order not found" });
 
-// Sirf picked_up ya delivery_code_generated allow  
-if(!["picked_up","delivery_code_generated"].includes(order.status)){  
-  return res.json({ success:false, message:"Invalid order state" });  
-}  
+    // Only allow if order is picked_up or code already generated
+    if(!["picked_up","delivery_code_generated"].includes(order.status)){
+      return res.json({ success:false, message:"Invalid order state for code generation" });
+    }
 
-// 🔐 New 4-digit code  
-const code = Math.floor(1000 + Math.random()*9000).toString();  
+    // Generate 4-digit code
+    const code = Math.floor(1000 + Math.random()*9000).toString();
+    order.deliveryCode = code;
+    order.deliveryCodeTime = new Date();
+    order.status = "delivery_code_generated";
+    order.statusHistory.push({ status:"delivery_code_generated", time: Date.now() });
 
-order.deliveryCode = code;  
-order.deliveryCodeTime = new Date();  
-order.status = "delivery_code_generated";  
+    await order.save();
 
-order.statusHistory.push({  
-  status:"delivery_code_generated",  
-  time:new Date()  
-});  
+    // TODO: Send code to retailer via SMS/push
+    // sendToRetailer(order.retailerMobile, code);
 
-await order.save();  
+    res.json({ success:true, message:"Delivery code generated", code });
 
-// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
-// sendToRetailer(order.retailerMobile, code);  
-
-res.json({  
-  success:true,  
-  message:"Delivery code generated & sent",  
-  code // ⚠️ testing only  
+  }catch(err){
+    console.error("Generate Delivery Code Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
 
-}catch(err){
-console.error(err);
-res.status(500).json({ success:false, message:"Server error" });
-}
-});
-
-/* ================= PICKUP ORDER ================= */
+// 3️⃣ Pickup the order by delivery boy
 app.post("/api/orders/:id/pickup", async (req, res) => {
-try {
-const order = await Order.findById(req.params.id);
-if (!order) return res.json({ success: false, message: "Order not found" });
+  try{
+    const order = await Order.findById(req.params.id);
+    if(!order) return res.json({ success:false, message:"Order not found" });
 
-// ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai  
-if (order.status !== "delivery_accepted" && order.status !== "paid") {  
-  return res.json({ success: false, message: "Order pickup not allowed" });  
-}  
+    // Only "paid" or "delivery_accepted" orders can be picked up
+    if(!["paid","delivery_accepted"].includes(order.status)){
+      return res.json({ success:false, message:"Order pickup not allowed" });
+    }
 
-// ✅ Status set karen picked_up  
-order.status = "picked_up";  
-order.statusHistory.push({ status: "picked_up", time: Date.now() });  
+    order.status = "picked_up";
+    order.statusHistory.push({ status:"picked_up", time: Date.now() });
+    await order.save();
 
-await order.save();  
-res.json({ success: true, message: "Order picked up successfully" });
+    res.json({ success:true, message:"Order picked up successfully" });
 
-} catch (err) {
-console.error("Pickup Error:", err);
-res.status(500).json({ success: false });
-}
+  }catch(err){
+    console.error("Pickup Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
 
+// 4️⃣ Verify delivery code and mark order as delivered
 app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
-try{
-const { code } = req.body;
-const order = await Order.findById(req.params.orderId);
+  try{
+    const { code } = req.body;
+    if(!code) return res.json({ success:false, message:"Code is required" });
 
-if(!order){  
-  return res.json({ success:false, message:"Order not found" });  
-}  
+    const order = await Order.findById(req.params.orderId);
+    if(!order) return res.json({ success:false, message:"Order not found" });
 
-if(order.status !== "delivery_code_generated"){  
-  return res.json({ success:false, message:"Order not ready for delivery" });  
-}  
+    // Only allow verification if code generated
+    if(order.status !== "delivery_code_generated"){
+      return res.json({ success:false, message:"Order not ready for delivery" });
+    }
 
-// ⏱️ 10 minute expiry  
-const TEN_MIN = 10 * 60 * 1000;  
-const expired = Date.now() - new Date(order.deliveryCodeTime).getTime() > TEN_MIN;  
+    // Check expiry (10 min)
+    const TEN_MIN = 10 * 60 * 1000;
+    const expired = Date.now() - new Date(order.deliveryCodeTime).getTime() > TEN_MIN;
 
-// ❌ CODE EXPIRED  
-if(expired){  
-  order.status = "picked_up";          // 🔥 AUTO FIX  
-  order.deliveryCode = null;  
-  order.deliveryCodeTime = null;  
+    if(expired){
+      order.status = "picked_up";  // fallback to picked_up
+      order.deliveryCode = null;
+      order.deliveryCodeTime = null;
+      order.statusHistory.push({ status:"code_expired", time: Date.now() });
+      await order.save();
 
-  order.statusHistory.push({  
-    status:"code_expired",  
-    time:new Date()  
-  });  
+      return res.json({ success:false, message:"Delivery code expired. Generate new code." });
+    }
 
-  await order.save();  
+    // Wrong code
+    if(order.deliveryCode !== code){
+      return res.json({ success:false, message:"Wrong delivery code" });
+    }
 
-  return res.json({  
-    success:false,  
-    message:"Delivery code expired. Generate new code."  
-  });  
-}  
+    // ✅ Correct code → mark delivered
+    order.status = "delivered";
+    order.deliveryCode = null;
+    order.deliveryCodeTime = null;
+    order.statusHistory.push({ status:"delivered", time: Date.now() });
+    await order.save();
 
-// ❌ WRONG CODE  
-if(order.deliveryCode !== code){  
-  return res.json({ success:false, message:"Wrong delivery code" });  
-}  
+    res.json({ success:true, message:"Order delivered successfully" });
 
-// ✅ CORRECT CODE → DELIVERED  
-order.status = "delivered";  
-order.deliveryCode = null;  
-order.deliveryCodeTime = null;  
-
-order.statusHistory.push({  
-  status:"delivered",  
-  time:new Date()  
-});  
-
-await order.save();  
-
-res.json({ success:true, message:"Order delivered successfully" });
-
-}catch(err){
-console.error(err);
-res.status(500).json({ success:false, message:"Server error" });
-}
+  }catch(err){
+    console.error("Verify Delivery Code Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
+
+// 5️⃣ Save / update delivery boy profile
 app.post("/api/delivery/profile/save", async (req, res) => {
-try {
-const { deliveryBoyId } = req.body;
+  try{
+    const { deliveryBoyId } = req.body;
+    if(!deliveryBoyId) return res.status(400).json({ success:false, message:"ID required" });
 
-if (!deliveryBoyId) {
-return res.status(400).json({ success: false, message: "ID required" });
-}
+    const profile = await DeliveryProfile.findOneAndUpdate(
+      { deliveryBoyId },
+      req.body,
+      { upsert:true, new:true }
+    );
 
-const profile = await DeliveryProfile.findOneAndUpdate(
-{ deliveryBoyId },
-req.body,
-{ upsert: true, new: true }
-);
+    res.json({ success:true, message:"Profile saved", profile });
 
-res.json({
-success: true,
-message: "Profile saved",
-profile
+  }catch(err){
+    console.error("Delivery Profile Save Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
 
-} catch (err) {
-console.error("Profile Save Error:", err);
-res.status(500).json({ success: false });
-}
-});
-
+// 6️⃣ Get delivery boy profile
 app.get("/api/delivery/profile/:id", async (req, res) => {
-try {
-const profile = await DeliveryProfile.findOne({
-deliveryBoyId: req.params.id
+  try{
+    const profile = await DeliveryProfile.findOne({ deliveryBoyId: req.params.id });
+    res.json({ success:true, profile });
+  }catch(err){
+    console.error("Delivery Profile Get Error:", err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
-
-res.json({
-success: true,
-profile
-});
-
-} catch (err) {
-console.error("Profile Get Error:", err);
-res.status(500).json({ success: false });
-}
-});
-
 /* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
 
 /* ===== RETAILER ===== */
