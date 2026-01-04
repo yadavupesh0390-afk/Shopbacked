@@ -449,46 +449,56 @@ res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-try{
-const order = await Order.findById(req.params.orderId);
-if(!order){
-return res.json({ success:false, message:"Order not found" });
-}
+  try{
+    const order = await Order.findById(req.params.orderId);
+    if(!order){
+      return res.json({ success:false, message:"Order not found" });
+    }
 
-// Sirf picked_up ya delivery_code_generated allow  
-if(!["picked_up","delivery_code_generated"].includes(order.status)){  
-  return res.json({ success:false, message:"Invalid order state" });  
-}  
+    // Sirf picked_up ya delivery_code_generated allow  
+    if(!["picked_up","delivery_code_generated"].includes(order.status)){  
+      return res.json({ success:false, message:"Invalid order state" });  
+    }  
 
-// 🔐 New 4-digit code  
-const code = Math.floor(1000 + Math.random()*9000).toString();  
+    // 🔐 New 4-digit code  
+    const code = Math.floor(1000 + Math.random()*9000).toString();  
 
-order.deliveryCode = code;  
-order.deliveryCodeTime = new Date();  
-order.status = "delivery_code_generated";  
+    // 🔹 DELIVERY BOY ASSIGN (agar pehle se assign nahi)
+    if(!order.deliveryBoyId){
+      // Example: first available delivery boy (future me city filter kar sakte ho)
+      const deliveryBoy = await DeliveryProfile.findOne();
+      if(deliveryBoy){
+        order.deliveryBoyId = deliveryBoy.deliveryBoyId;
+        order.deliveryBoyName = deliveryBoy.name;
+        order.deliveryBoyMobile = deliveryBoy.mobile;
+      }
+    }
 
-order.statusHistory.push({  
-  status:"delivery_code_generated",  
-  time:new Date()  
-});  
+    order.deliveryCode = code;  
+    order.deliveryCodeTime = new Date();  
+    order.status = "delivery_code_generated";  
 
-await order.save();  
+    order.statusHistory.push({  
+      status:"delivery_code_generated",  
+      time:new Date()  
+    });  
 
-// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
-// sendToRetailer(order.retailerMobile, code);  
+    await order.save();  
 
-res.json({  
-  success:true,  
-  message:"Delivery code generated & sent",  
-  code // ⚠️ testing only  
+    // 🔔 frontend me delivery boy info turant dikhana
+    res.json({  
+      success:true,  
+      message:"Delivery code generated & delivery boy assigned",  
+      code,
+      deliveryBoyName: order.deliveryBoyName,
+      deliveryBoyMobile: order.deliveryBoyMobile
+    });
+
+  }catch(err){
+    console.error(err);
+    res.status(500).json({ success:false, message:"Server error" });
+  }
 });
-
-}catch(err){
-console.error(err);
-res.status(500).json({ success:false, message:"Server error" });
-}
-});
-
 /* ================= PICKUP ORDER ================= */
 app.post("/api/orders/:id/pickup", async (req, res) => {
 try {
