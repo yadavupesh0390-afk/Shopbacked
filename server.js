@@ -310,16 +310,15 @@ if (expected !== razorpay_signature) {
 }  
 
 // ✅ PAYMENT VERIFIED → CREATE ORDER  
-const order = new Order({  
-  ...orderData,  
-  paymentId: razorpay_payment_id,  
-  paymentStatus: "paid",  
-  status: "pending", // 🔥 VERY IMPORTANT  
-  statusHistory: [{  
-    status:"paid",  
-    time:new Date()  
-  }]  
-});  
+const order = new Order({
+  ...orderData,
+  paymentId: razorpay_payment_id,
+  status: "paid",
+  statusHistory: [{
+    status:"paid",
+    time:new Date()
+  }]
+});
 
 await order.save();  
 
