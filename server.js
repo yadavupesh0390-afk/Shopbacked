@@ -449,48 +449,44 @@ res.json({success:true});
 });
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-  try{
-    const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body; // ✅ add
+try{
+const order = await Order.findById(req.params.orderId);
+if(!order){
+return res.json({ success:false, message:"Order not found" });
+}
 
-    const order = await Order.findById(req.params.orderId);
-    if(!order){
-      return res.json({ success:false, message:"Order not found" });
-    }
+// Sirf picked_up ya delivery_code_generated allow  
+if(!["picked_up","delivery_code_generated"].includes(order.status)){  
+  return res.json({ success:false, message:"Invalid order state" });  
+}  
 
-    // Sirf picked_up ya delivery_code_generated allow  
-    if(!["picked_up","delivery_code_generated"].includes(order.status)){  
-      return res.json({ success:false, message:"Invalid order state" });  
-    }  
+// 🔐 New 4-digit code  
+const code = Math.floor(1000 + Math.random()*9000).toString();  
 
-    // 🔐 New 4-digit code  
-    const code = Math.floor(1000 + Math.random()*9000).toString();  
+order.deliveryCode = code;  
+order.deliveryCodeTime = new Date();  
+order.status = "delivery_code_generated";  
 
-    order.deliveryCode = code;  
-    order.deliveryCodeTime = new Date();  
-    order.status = "delivery_code_generated";  
+order.statusHistory.push({  
+  status:"delivery_code_generated",  
+  time:new Date()  
+});  
 
-    // ✅ Save delivery boy info
-    if(deliveryBoyId) order.deliveryBoyId = deliveryBoyId;
-    if(deliveryBoyName) order.deliveryBoyName = deliveryBoyName;
-    if(deliveryBoyMobile) order.deliveryBoyMobile = deliveryBoyMobile;
+await order.save();  
 
-    order.statusHistory.push({  
-      status:"delivery_code_generated",  
-      time:new Date()  
-    });  
+// 🔔 yahin retailer ko SMS / app push bhejna ho to bhejo  
+// sendToRetailer(order.retailerMobile, code);  
 
-    await order.save();  
+res.json({  
+  success:true,  
+  message:"Delivery code generated & sent",  
+  code // ⚠️ testing only  
+});
 
-    res.json({  
-      success:true,  
-      message:"Delivery code generated & sent",  
-      code // ⚠️ testing only  
-    });
-
-  }catch(err){
-    console.error(err);
-    res.status(500).json({ success:false, message:"Server error" });
-  }
+}catch(err){
+console.error(err);
+res.status(500).json({ success:false, message:"Server error" });
+}
 });
 
 /* ================= PICKUP ORDER ================= */
@@ -539,146 +535,87 @@ if(expired){
   order.status = "picked_up";          // 🔥 AUTO FIX  
   order.deliveryCode = null;  
   order.deliveryCodeTime = null;  
-/* ================= PAYMENT ================= */
 
-// Razorpay order
-app.post("/api/orders/pay-and-create", async(req,res)=>{
-  const order = await razorpay.orders.create({
-    amount: req.body.amount * 100,
-    currency:"INR",
-    receipt:"rcpt_"+Date.now()
-  });
-  res.json({ success:true, order, key:process.env.RAZORPAY_KEY_ID });
+  order.statusHistory.push({  
+    status:"code_expired",  
+    time:new Date()  
+  });  
+
+  await order.save();  
+
+  return res.json({  
+    success:false,  
+    message:"Delivery code expired. Generate new code."  
+  });  
+}  
+
+// ❌ WRONG CODE  
+if(order.deliveryCode !== code){  
+  return res.json({ success:false, message:"Wrong delivery code" });  
+}  
+
+// ✅ CORRECT CODE → DELIVERED  
+order.status = "delivered";  
+order.deliveryCode = null;  
+order.deliveryCodeTime = null;  
+
+order.statusHistory.push({  
+  status:"delivered",  
+  time:new Date()  
+});  
+
+await order.save();  
+
+res.json({ success:true, message:"Order delivered successfully" });
+
+}catch(err){
+console.error(err);
+res.status(500).json({ success:false, message:"Server error" });
+}
+});
+app.post("/api/delivery/profile/save", async (req, res) => {
+try {
+const { deliveryBoyId } = req.body;
+
+if (!deliveryBoyId) {
+return res.status(400).json({ success: false, message: "ID required" });
+}
+
+const profile = await DeliveryProfile.findOneAndUpdate(
+{ deliveryBoyId },
+req.body,
+{ upsert: true, new: true }
+);
+
+res.json({
+success: true,
+message: "Profile saved",
+profile
 });
 
-// VERIFY ONLY (NO ORDER CREATE HERE)
-app.post("/api/payment/verify", async(req,res)=>{
-  const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-
-  const sign = razorpay_order_id + "|" + razorpay_payment_id;
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(sign)
-    .digest("hex");
-
-  if(expected !== razorpay_signature){
-    return res.json({ success:false });
-  }
-
-  res.json({ success:true, paymentId:razorpay_payment_id });
+} catch (err) {
+console.error("Profile Save Error:", err);
+res.status(500).json({ success: false });
+}
 });
 
-// CREATE ORDER AFTER PAYMENT
-app.post("/api/orders/confirm-after-payment", async(req,res)=>{
-  const {
-    productId,
-    paymentId,
-    retailerName,
-    retailerMobile,
-    retailerAddress,
-    vehicleType,
-    deliveryCharge,
-    totalAmount
-  } = req.body;
-
-  const product = await Product.findById(productId);
-  if(!product) return res.json({success:false});
-
-  const order = await Order.create({
-    paymentId,
-
-    wholesalerId: product.wholesalerId,
-    wholesalerName: product.shopName,
-    wholesalerMobile: product.mobile,
-    wholesalerAddress: product.address,
-
-    productId: product._id,
-    productName: product.productName,
-    productImg: product.image,
-    price: product.price,
-
-    retailerName,
-    retailerMobile:String(retailerMobile),
-    retailerAddress,
-
-    vehicleType,
-    deliveryCharge,
-    totalAmount,
-
-    status:"paid",
-    statusHistory:[{ status:"paid", time:Date.now() }]
-  });
-
-  res.json({ success:true, order });
+app.get("/api/delivery/profile/:id", async (req, res) => {
+try {
+const profile = await DeliveryProfile.findOne({
+deliveryBoyId: req.params.id
 });
 
-/* ================= DELIVERY ================= */
-
-// accept
-app.post("/api/orders/:id/delivery-accept", async(req,res)=>{
-  const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-
-  await Order.findByIdAndUpdate(req.params.id,{
-    deliveryBoyId,
-    deliveryBoyName,
-    deliveryBoyMobile,
-    status:"delivery_accepted",
-    $push:{ statusHistory:{ status:"delivery_accepted", time:Date.now() } }
-  });
-
-  res.json({ success:true });
+res.json({
+success: true,
+profile
 });
 
-// pickup
-app.post("/api/orders/:id/pickup", async(req,res)=>{
-  const order = await Order.findById(req.params.id);
-  if(!order) return res.json({success:false});
-
-  if(order.status!=="delivery_accepted") return res.json({success:false});
-
-  order.status="picked_up";
-  order.statusHistory.push({status:"picked_up", time:Date.now()});
-  await order.save();
-
-  res.json({success:true});
+} catch (err) {
+console.error("Profile Get Error:", err);
+res.status(500).json({ success: false });
+}
 });
 
-// generate code
-app.post("/api/orders/generate-delivery-code/:id", async(req,res)=>{
-  const order = await Order.findById(req.params.id);
-  if(!order || order.status!=="picked_up") return res.json({success:false});
-
-  const code = Math.floor(1000 + Math.random()*9000).toString();
-  order.deliveryCode = code;
-  order.deliveryCodeTime = new Date();
-  order.status="delivery_code_generated";
-
-  order.statusHistory.push({status:"delivery_code_generated", time:Date.now()});
-  await order.save();
-
-  res.json({ success:true, code });
-});
-
-// verify code
-app.post("/api/orders/verify-delivery-code/:id", async(req,res)=>{
-  const { code } = req.body;
-  const order = await Order.findById(req.params.id);
-  if(!order || order.status!=="delivery_code_generated") return res.json({success:false});
-
-  if(Date.now() - order.deliveryCodeTime.getTime() > TEN_MIN)
-    return res.json({success:false, message:"Code expired"});
-
-  if(order.deliveryCode !== code) return res.json({success:false});
-
-  order.status="delivered";
-  order.deliveryCode=null;
-  order.deliveryCodeTime=null;
-
-  order.statusHistory.push({status:"delivered", time:Date.now()});
-  await order.save();
-
-  res.json({ success:true });
-});
 /* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
 
 /* ===== RETAILER ===== */
