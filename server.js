@@ -322,9 +322,10 @@ const order = new Order({
 
 await order.save();  
 
-return res.json({  
-  success: true,  
-  orderId: order._id  
+return res.json({
+  success: true,
+  message: "✅ Payment successful! Your order has been placed.",
+  orderId: order._id
 });
 
 } catch (err) {
