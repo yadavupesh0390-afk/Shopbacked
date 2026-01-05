@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
+app.use(express.json({ limit: "10mb" }));
 const app = express();
 app.use(cors());
 
