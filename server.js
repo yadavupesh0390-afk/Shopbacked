@@ -394,48 +394,31 @@ try{
 }
 });
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-  try{
-    const order = await Order.findById(req.params.orderId);
-    if(!order) return res.json({ success:false });
+  const order = await Order.findById(req.params.orderId);
 
-    if(!["picked_up","delivery_code_generated"].includes(order.status)){
-      return res.json({ success:false, message:"Invalid state" });
-    }
+  const profile = await DeliveryProfile.findOne({
+    deliveryBoyId: order.deliveryBoyId
+  });
 
-    // 🔥 DELIVERY PROFILE FETCH
-    const profile = await DeliveryProfile.findOne({
-      deliveryBoyId: order.deliveryBoyId
-    });
-
-    if(profile){
-      order.deliveryBoyName = profile.name;
-      order.deliveryBoyMobile = profile.mobile;
-    }
-
-    const code = Math.floor(1000 + Math.random()*9000).toString();
-
-    order.deliveryCode = code;
-    order.deliveryCodeTime = new Date();
-    order.status = "delivery_code_generated";
-
-    order.statusHistory.push({
-      status:"delivery_code_generated",
-      time:Date.now()
-    });
-
-    await order.save();
-
-    res.json({
-      success:true,
-      code,
-      deliveryBoyName: order.deliveryBoyName,
-      deliveryBoyMobile: order.deliveryBoyMobile
-    });
-
-  }catch(err){
-    console.error(err);
-    res.status(500).json({ success:false });
+  if(profile){
+    order.deliveryBoyName = profile.name;
+    order.deliveryBoyMobile = profile.mobile;
   }
+
+  const code = Math.floor(1000 + Math.random()*9000).toString();
+
+  order.deliveryCode = code;
+  order.deliveryCodeTime = new Date();
+  order.status = "delivery_code_generated";
+
+  await order.save();
+
+  res.json({
+    success:true,
+    code,
+    deliveryBoyName: order.deliveryBoyName,
+    deliveryBoyMobile: order.deliveryBoyMobile
+  });
 });
 /* ================= PICKUP ORDER ================= */
 app.post("/api/orders/:id/pickup", async (req, res) => {
