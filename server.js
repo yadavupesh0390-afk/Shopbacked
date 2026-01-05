@@ -323,31 +323,33 @@ app.post(
         }
 
         await Order.create({
-          paymentId: payment.id,
+        paymentId: payment.id,
 
-          wholesalerId: notes.wholesalerId || "",
-          wholesalerName: notes.wholesalerName || "",
-          wholesalerMobile: notes.wholesalerMobile || "",
-          wholesalerAddress: notes.wholesalerAddress || "",
+        wholesalerId: (notes.wholesalerId || "").toLowerCase(),
+        wholesalerName: notes.wholesalerName || "",
+        wholesalerMobile: notes.wholesalerMobile || "",
+        wholesalerAddress: notes.wholesalerAddress || "",
 
-          productId: notes.productId || "",
-          productName: notes.productName || "",
-          price: Number(notes.price || 0),
+        productId: notes.productId || "",
+        productName: notes.productName || "",
+        productImg: notes.productImg || "",
+        description: notes.description || "",
+        price: Number(notes.price || 0),
 
-          retailerName: notes.retailerName || "",
-          retailerMobile: notes.retailerMobile || "",
-          retailerAddress: notes.retailerAddress || "",
+        retailerName: notes.retailerName || "",
+        retailerMobile: notes.retailerMobile || "",
+        retailerAddress: notes.retailerAddress || "",
 
-          vehicleType: notes.vehicleType || "",
-          deliveryCharge: Number(notes.deliveryCharge || 0),
-          totalAmount: payment.amount / 100,
+        vehicleType: notes.vehicleType || "",
+        deliveryCharge: Number(notes.deliveryCharge || 0),
 
-          status: "paid",
-          statusHistory: [{
-            status: "paid",
-            time: Date.now()
-          }]
-        });
+        totalAmount: payment.amount / 100,
+
+        status: "paid",
+        statusHistory: [
+       { status: "paid", time: Date.now() }
+  ]
+});
       }
 
       res.json({ success: true });
