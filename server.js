@@ -289,50 +289,75 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 
 const crypto = require("crypto");
 
-app.post("/api/payment/verify", async (req, res) => {
-try {
-const {
-razorpay_payment_id,
-razorpay_order_id,
-razorpay_signature,
-orderData // 🔥 frontend se bhejna
-} = req.body;
+// 🔴 VERY IMPORTANT: express.json() se upar
+app.post(
+  "/api/webhook/razorpay",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const crypto = require("crypto");
 
-const sign = razorpay_order_id + "|" + razorpay_payment_id;  
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      const signature = req.headers["x-razorpay-signature"];
 
-const expected = crypto  
-  .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)  
-  .update(sign)  
-  .digest("hex");  
+      const expectedSignature = crypto
+        .createHmac("sha256", secret)
+        .update(req.body)
+        .digest("hex");
 
-if (expected !== razorpay_signature) {  
-  return res.json({ success: false, message:"Payment verification failed" });  
-}  
+      if (expectedSignature !== signature) {
+        return res.status(400).send("Invalid signature");
+      }
 
-// ✅ PAYMENT VERIFIED → CREATE ORDER  
-const order = new Order({
-  ...orderData,
-  paymentId: razorpay_payment_id,
-  status: "paid",
-  statusHistory: [{
-    status:"paid",
-    time:new Date()
-  }]
-});
+      const event = JSON.parse(req.body.toString());
 
-await order.save();  
+      // ✅ PAYMENT SUCCESS EVENT
+      if (event.event === "payment.captured") {
+        const payment = event.payload.payment.entity;
+        const notes = payment.notes || {};
 
-return res.json({
-  success: true,
-  message: "✅ Payment successful! Your order has been placed.",
-  orderId: order._id
-});
+        // 🔴 DUPLICATE CHECK
+        const already = await Order.findOne({ paymentId: payment.id });
+        if (already) {
+          return res.json({ success: true });
+        }
 
-} catch (err) {
-console.error(err);
-res.status(500).json({ success: false });
-}
-});
+        await Order.create({
+          paymentId: payment.id,
+
+          wholesalerId: notes.wholesalerId || "",
+          wholesalerName: notes.wholesalerName || "",
+          wholesalerMobile: notes.wholesalerMobile || "",
+          wholesalerAddress: notes.wholesalerAddress || "",
+
+          productId: notes.productId || "",
+          productName: notes.productName || "",
+          price: Number(notes.price || 0),
+
+          retailerName: notes.retailerName || "",
+          retailerMobile: notes.retailerMobile || "",
+          retailerAddress: notes.retailerAddress || "",
+
+          vehicleType: notes.vehicleType || "",
+          deliveryCharge: Number(notes.deliveryCharge || 0),
+          totalAmount: payment.amount / 100,
+
+          status: "paid",
+          statusHistory: [{
+            status: "paid",
+            time: Date.now()
+          }]
+        });
+      }
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("Webhook Error:", err);
+      res.status(500).send("Webhook error");
+    }
+  }
+);
 
 app.post("/api/orders/confirm-after-payment", async (req,res)=>{
   try{
