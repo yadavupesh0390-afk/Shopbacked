@@ -8,7 +8,7 @@ const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+
 
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
@@ -359,109 +359,7 @@ app.post(
   }
 );
 
-app.post("/api/orders/confirm-after-payment", async (req,res)=>{
-  try{
-    const {
-      products,
-      productId,
-      paymentId,
-      vehicleType,
-      retailerName,
-      retailerMobile,
-      retailerAddress,
-      totalAmount,
-      deliveryCharge
-    } = req.body;
-
-    // 🔴 SINGLE PRODUCT
-    if(productId){
-      const product = await Product.findById(productId);
-      if(!product) return res.json({ success:false });
-
-      const order = await Order.create({
-        paymentId,
-
-        // ✅ WHOLESALER INFO (CRITICAL)
-        wholesalerId: product.wholesalerId,
-        wholesalerName: product.shopName || "",
-        wholesalerMobile: product.mobile || "",
-        wholesalerAddress: product.address || "",
-
-        // ✅ PRODUCT
-        productId: product._id,
-        productName: product.productName,
-        productImg: product.image,
-        price: product.price,
-
-        // ✅ RETAILER
-        retailerName,
-        retailerMobile,
-        retailerAddress,
-
-        vehicleType,
-        deliveryCharge,
-        totalAmount,
-
-        // ✅ STATUS MUST BE "paid"
-        status: "paid",
-        statusHistory: [{
-          status: "paid",
-          time: Date.now()
-        }]
-      });
-
-      return res.json({ success:true, order });
-    }
-
-    // 🔴 CART ORDER
-    if(products && products.length > 0){
-      const orders = [];
-
-      for(const p of products){
-        const product = await Product.findById(p._id);
-        if(!product) continue;
-
-        const order = await Order.create({
-          paymentId,
-
-          wholesalerId: product.wholesalerId,
-          wholesalerName: product.shopName || "",
-          wholesalerMobile: product.mobile || "",
-          wholesalerAddress: product.address || "",
-
-          productId: product._id,
-          productName: product.productName,
-          productImg: product.image,
-          price: product.price,
-
-          retailerName,
-          retailerMobile,
-          retailerAddress,
-
-          vehicleType,
-          deliveryCharge,
-          totalAmount,
-
-          status: "paid",
-          statusHistory: [{
-            status: "paid",
-            time: Date.now()
-          }]
-        });
-
-        orders.push(order);
-      }
-
-      return res.json({ success:true, orders });
-    }
-
-    res.json({ success:false });
-
-  }catch(err){
-    console.error("Confirm Payment Error:", err);
-    res.status(500).json({ success:false });
-  }
-});
+app.use(express.json());
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
 const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
