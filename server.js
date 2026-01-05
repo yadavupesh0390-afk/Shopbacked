@@ -288,15 +288,11 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 });
 
 const crypto = require("crypto");
-app.use(express.json());
-// 🔴 VERY IMPORTANT: express.json() se upar
 app.post(
   "/api/webhook/razorpay",
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
-      const crypto = require("crypto");
-
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
 
@@ -306,61 +302,58 @@ app.post(
         .digest("hex");
 
       if (expectedSignature !== signature) {
+        console.log("❌ Invalid webhook signature");
         return res.status(400).send("Invalid signature");
       }
 
       const event = JSON.parse(req.body.toString());
 
-      // ✅ PAYMENT SUCCESS EVENT
       if (event.event === "payment.captured") {
         const payment = event.payload.payment.entity;
         const notes = payment.notes || {};
 
-        // 🔴 DUPLICATE CHECK
         const already = await Order.findOne({ paymentId: payment.id });
-        if (already) {
-          return res.json({ success: true });
-        }
+        if (already) return res.json({ success: true });
 
         await Order.create({
-        paymentId: payment.id,
+          paymentId: payment.id,
 
-        wholesalerId: (notes.wholesalerId || "").toLowerCase(),
-        wholesalerName: notes.wholesalerName || "",
-        wholesalerMobile: notes.wholesalerMobile || "",
-        wholesalerAddress: notes.wholesalerAddress || "",
+          wholesalerId: (notes.wholesalerId || "").toLowerCase(),
+          wholesalerName: notes.wholesalerName || "",
+          wholesalerMobile: notes.wholesalerMobile || "",
+          wholesalerAddress: notes.wholesalerAddress || "",
 
-        productId: notes.productId || "",
-        productName: notes.productName || "",
-        productImg: notes.productImg || "",
-        description: notes.description || "",
-        price: Number(notes.price || 0),
+          productId: notes.productId || "",
+          productName: notes.productName || "",
+          productImg: notes.productImg || "",
+          description: notes.description || "",
+          price: Number(notes.price || 0),
 
-        retailerName: notes.retailerName || "",
-        retailerMobile: notes.retailerMobile || "",
-        retailerAddress: notes.retailerAddress || "",
+          retailerName: notes.retailerName || "",
+          retailerMobile: notes.retailerMobile || "",
+          retailerAddress: notes.retailerAddress || "",
 
-        vehicleType: notes.vehicleType || "",
-        deliveryCharge: Number(notes.deliveryCharge || 0),
+          vehicleType: notes.vehicleType || "",
+          deliveryCharge: Number(notes.deliveryCharge || 0),
 
-        totalAmount: payment.amount / 100,
+          totalAmount: payment.amount / 100,
 
-        status: "paid",
-        statusHistory: [
-       { status: "paid", time: Date.now() }
-       ]
-       });
+          status: "paid",
+          statusHistory: [
+            { status: "paid", time: Date.now() }
+          ]
+        });
+
+        console.log("✅ Order created via webhook");
       }
 
       res.json({ success: true });
-
     } catch (err) {
       console.error("Webhook Error:", err);
       res.status(500).send("Webhook error");
     }
   }
 );
-
 
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
