@@ -288,7 +288,7 @@ res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amo
 });
 
 const crypto = require("crypto");
-
+app.use(express.json());
 // 🔴 VERY IMPORTANT: express.json() se upar
 app.post(
   "/api/webhook/razorpay",
@@ -364,15 +364,35 @@ app.post(
 
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
-await Order.findByIdAndUpdate(req.params.id,{
-deliveryBoyId, deliveryBoyName, deliveryBoyMobile,
-status:"delivery_accepted",
-$push:{statusHistory:{status:"delivery_accepted",time:Date.now()}}
-});
-res.json({success:true});
-});
+try{
+  const { deliveryBoyId } = req.body;
 
+  const profile = await DeliveryProfile.findOne({ deliveryBoyId });
+
+  if(!profile){
+    return res.json({ success:false, message:"Delivery profile not found" });
+  }
+
+  await Order.findByIdAndUpdate(req.params.id,{
+    deliveryBoyId,
+    deliveryBoyName: profile.name,
+    deliveryBoyMobile: profile.mobile,
+    status:"delivery_accepted",
+    $push:{
+      statusHistory:{
+        status:"delivery_accepted",
+        time:Date.now()
+      }
+    }
+  });
+
+  res.json({ success:true });
+
+}catch(err){
+  console.error(err);
+  res.status(500).json({ success:false });
+}
+});
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try{
     const order = await Order.findById(req.params.orderId);
