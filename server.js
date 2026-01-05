@@ -422,28 +422,54 @@ app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
 });
 /* ================= PICKUP ORDER ================= */
 app.post("/api/orders/:id/pickup", async (req, res) => {
-try {
-const order = await Order.findById(req.params.id);
-if (!order) return res.json({ success: false, message: "Order not found" });
+  try {
+    const { deliveryBoyId } = req.body;
 
-// ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai  
-if (order.status !== "delivery_accepted" && order.status !== "paid") {  
-  return res.json({ success: false, message: "Order pickup not allowed" });  
-}  
+    if (!deliveryBoyId) {
+      return res.json({ success: false, message: "Delivery boy id missing" });
+    }
 
-// ✅ Status set karen picked_up  
-order.status = "picked_up";  
-order.statusHistory.push({ status: "picked_up", time: Date.now() });  
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.json({ success: false, message: "Order not found" });
+    }
 
-await order.save();  
-res.json({ success: true, message: "Order picked up successfully" });
+    // ❌ Sirf paid ya delivery_accepted order pickup ho sakta hai
+    if (order.status !== "delivery_accepted" && order.status !== "paid") {
+      return res.json({ success: false, message: "Order pickup not allowed" });
+    }
 
-} catch (err) {
-console.error("Pickup Error:", err);
-res.status(500).json({ success: false });
-}
+    // 🔥 DELIVERY BOY PROFILE FETCH
+    const boy = await DeliveryBoy.findById(deliveryBoyId);
+    if (!boy) {
+      return res.json({ success: false, message: "Delivery boy not found" });
+    }
+
+    // ✅ REAL DELIVERY BOY DETAILS SAVE
+    order.deliveryBoyId = boy._id;
+    order.deliveryBoyName = boy.name;        // 🔥 REAL NAME
+    order.deliveryBoyMobile = boy.mobile;    // 🔥 REAL NUMBER
+
+    // ✅ STATUS UPDATE
+    order.status = "picked_up";
+    order.statusHistory.push({
+      status: "picked_up",
+      time: new Date()
+    });
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order picked up successfully",
+      deliveryBoyName: boy.name
+    });
+
+  } catch (err) {
+    console.error("Pickup Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 });
-
 app.post("/api/orders/verify-delivery-code/:orderId", async (req,res)=>{
 try{
 const { code } = req.body;
