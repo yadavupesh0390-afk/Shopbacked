@@ -348,8 +348,8 @@ app.post(
         status: "paid",
         statusHistory: [
        { status: "paid", time: Date.now() }
-  ]
-});
+       ]
+       });
       }
 
       res.json({ success: true });
@@ -361,7 +361,7 @@ app.post(
   }
 );
 
-app.use(express.json());
+
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
 const { deliveryBoyId, deliveryBoyName, deliveryBoyMobile } = req.body;
