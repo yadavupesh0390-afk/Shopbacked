@@ -8,7 +8,7 @@ const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+
 
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
@@ -159,6 +159,71 @@ res.status(500).json({ success:false });
 }
 });
 
+
+app.post(
+  "/api/webhook/razorpay",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      const signature = req.headers["x-razorpay-signature"];
+
+      const expected = crypto
+        .createHmac("sha256", secret)
+        .update(req.body)
+        .digest("hex");
+
+      if (expected !== signature) {
+        return res.status(400).send("Invalid signature");
+      }
+
+      const event = JSON.parse(req.body.toString());
+
+      if (event.event === "payment.captured") {
+        const payment = event.payload.payment.entity;
+        const notes = payment.notes || {};
+
+        const already = await Order.findOne({ paymentId: payment.id });
+        if (already) return res.json({ success: true });
+
+        await Order.create({
+          paymentId: payment.id,
+
+          wholesalerId: notes.wholesalerId,
+          wholesalerName: notes.wholesalerName,
+          wholesalerMobile: notes.wholesalerMobile,
+          wholesalerAddress: notes.wholesalerAddress,
+
+          productId: notes.productId,
+          productName: notes.productName,
+          price: Number(notes.price),
+
+          retailerName: notes.retailerName,
+          retailerMobile: notes.retailerMobile,
+          retailerAddress: notes.retailerAddress,
+
+          vehicleType: notes.vehicleType,
+          deliveryCharge: Number(notes.deliveryCharge),
+
+          totalAmount: payment.amount / 100,
+
+          status: "paid",
+          statusHistory: [
+            { status: "paid", time: Date.now() }
+          ]
+        });
+      }
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("Webhook error:", err);
+      res.status(500).send("Webhook error");
+    }
+  }
+);
+
+
 app.post("/api/login", async (req,res)=>{
 const { mobile, password, role } = req.body;
 const user = await User.findOne({mobile, role});
@@ -299,70 +364,7 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
-const crypto = require("crypto");
-app.use(express.json());
-app.post(
-  "/api/webhook/razorpay",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    try {
-      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      const signature = req.headers["x-razorpay-signature"];
 
-      const expected = crypto
-        .createHmac("sha256", secret)
-        .update(req.body)
-        .digest("hex");
-
-      if (expected !== signature) {
-        return res.status(400).send("Invalid signature");
-      }
-
-      const event = JSON.parse(req.body.toString());
-
-      if (event.event === "payment.captured") {
-        const payment = event.payload.payment.entity;
-        const notes = payment.notes || {};
-
-        const already = await Order.findOne({ paymentId: payment.id });
-        if (already) return res.json({ success: true });
-
-        await Order.create({
-          paymentId: payment.id,
-
-          wholesalerId: notes.wholesalerId,
-          wholesalerName: notes.wholesalerName,
-          wholesalerMobile: notes.wholesalerMobile,
-          wholesalerAddress: notes.wholesalerAddress,
-
-          productId: notes.productId,
-          productName: notes.productName,
-          price: Number(notes.price),
-
-          retailerName: notes.retailerName,
-          retailerMobile: notes.retailerMobile,
-          retailerAddress: notes.retailerAddress,
-
-          vehicleType: notes.vehicleType,
-          deliveryCharge: Number(notes.deliveryCharge),
-
-          totalAmount: payment.amount / 100,
-
-          status: "paid",
-          statusHistory: [
-            { status: "paid", time: Date.now() }
-          ]
-        });
-      }
-
-      res.json({ success: true });
-
-    } catch (err) {
-      console.error("Webhook error:", err);
-      res.status(500).send("Webhook error");
-    }
-  }
-);
 
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
