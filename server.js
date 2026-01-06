@@ -9,6 +9,15 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 
+const twilio = require("twilio");
+
+const client = twilio(
+  process.env.TWILIO_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+
+
 
 /* ================= MONGO ================= */
 mongoose.connect(process.env.MONGO_URI)
@@ -404,7 +413,7 @@ try{
   res.status(500).json({ success:false });
 }
 });
-const client = require("./twilioClient");
+
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try {
