@@ -97,68 +97,6 @@ city: String
 
 const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema);
 
-/* ================= AUTH ================= */
-app.post("/api/signup", async (req,res)=>{
-try{
-let {
-role,
-password,
-mobile,
-mobile_number,
-upi_mobile_number
-} = req.body;
-
-// 🔁 FRONTEND FALLBACK SUPPORT  
-mobile = mobile || mobile_number || upi_mobile_number;  
-
-if(!role || !mobile || !password){  
-  return res.json({  
-    success:false,  
-    message:"Missing required fields"  
-  });  
-}  
-
-const exists = await User.findOne({ mobile, role });  
-if(exists){  
-  return res.json({  
-    success:false,  
-    message:"User already exists"  
-  });  
-}  
-
-const hashed = await bcrypt.hash(password,10);  
-
-const user = await User.create({  
-  role,  
-  mobile,  
-  password: hashed,  
-
-  // optional fields  
-  name: req.body.name || "",  
-  shop_current_location:  
-    req.body.shop_current_location ||  
-    req.body.current_live_location ||  
-    ""  
-});  
-
-const token = jwt.sign(  
-  { id:user._id, role:user.role },  
-  process.env.JWT_SECRET,  
-  { expiresIn:"7d" }  
-);  
-
-res.json({  
-  success:true,  
-  token,  
-  userId:user._id  
-});
-
-}catch(err){
-console.error("Signup Error:", err);
-res.status(500).json({ success:false });
-}
-});
-
 
 app.post(
   "/api/webhook/razorpay",
@@ -222,6 +160,75 @@ app.post(
     }
   }
 );
+
+
+
+app.use(express.json({ limit: "10mb" }));
+
+
+/* ================= AUTH ================= */
+app.post("/api/signup", async (req,res)=>{
+try{
+let {
+role,
+password,
+mobile,
+mobile_number,
+upi_mobile_number
+} = req.body;
+
+// 🔁 FRONTEND FALLBACK SUPPORT  
+mobile = mobile || mobile_number || upi_mobile_number;  
+
+if(!role || !mobile || !password){  
+  return res.json({  
+    success:false,  
+    message:"Missing required fields"  
+  });  
+}  
+
+const exists = await User.findOne({ mobile, role });  
+if(exists){  
+  return res.json({  
+    success:false,  
+    message:"User already exists"  
+  });  
+}  
+
+const hashed = await bcrypt.hash(password,10);  
+
+const user = await User.create({  
+  role,  
+  mobile,  
+  password: hashed,  
+
+  // optional fields  
+  name: req.body.name || "",  
+  shop_current_location:  
+    req.body.shop_current_location ||  
+    req.body.current_live_location ||  
+    ""  
+});  
+
+const token = jwt.sign(  
+  { id:user._id, role:user.role },  
+  process.env.JWT_SECRET,  
+  { expiresIn:"7d" }  
+);  
+
+res.json({  
+  success:true,  
+  token,  
+  userId:user._id  
+});
+
+}catch(err){
+console.error("Signup Error:", err);
+res.status(500).json({ success:false });
+}
+});
+
+
 
 
 app.post("/api/login", async (req,res)=>{
