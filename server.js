@@ -405,31 +405,59 @@ try{
 }
 });
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
-  const order = await Order.findById(req.params.orderId);
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if(!order) return res.status(404).json({success:false, message:"Order not found"});
 
-  const profile = await DeliveryProfile.findOne({
-    deliveryBoyId: order.deliveryBoyId
-  });
+    // 🔹 Fetch delivery boy profile
+    const profile = await DeliveryProfile.findOne({ deliveryBoyId: order.deliveryBoyId });
+    if(profile){
+      order.deliveryBoyName = profile.name;
+      order.deliveryBoyMobile = profile.mobile;
+    }
 
-  if(profile){
-    order.deliveryBoyName = profile.name;
-    order.deliveryBoyMobile = profile.mobile;
+    // 🔹 Generate 4-digit delivery code
+    const code = Math.floor(1000 + Math.random()*9000).toString();
+    order.deliveryCode = code;
+    order.deliveryCodeTime = new Date();
+    order.status = "delivery_code_generated";
+    order.statusHistory.push({
+      status:"delivery_code_generated",
+      time:Date.now()
+    });
+
+    await order.save();
+
+    // 🔹 SEND SMS TO RETAILER
+    if(order.retailerMobile){
+      const accountSid = process.env.TWILIO_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const client = require('twilio')(accountSid, authToken);
+
+      const msg = `🚚 Delivery Code: ${code}
+Retailer: ${order.retailerName}
+Delivery By: ${order.deliveryBoyName || "Delivery Partner"} (${order.deliveryBoyMobile || "N/A"})
+Time: ${order.deliveryCodeTime.toLocaleString()}`;
+
+      await client.messages.create({
+        body: msg,
+        from: process.env.TWILIO_NUMBER,
+        to: order.retailerMobile
+      });
+    }
+
+    // 🔹 Response to frontend
+    res.json({
+      success:true,
+      code,
+      deliveryBoyName: order.deliveryBoyName,
+      deliveryBoyMobile: order.deliveryBoyMobile
+    });
+
+  } catch(err){
+    console.error("Generate code error:", err);
+    res.status(500).json({success:false, message:"Server error"});
   }
-
-  const code = Math.floor(1000 + Math.random()*9000).toString();
-
-  order.deliveryCode = code;
-  order.deliveryCodeTime = new Date();
-  order.status = "delivery_code_generated";
-
-  await order.save();
-
-  res.json({
-    success:true,
-    code,
-    deliveryBoyName: order.deliveryBoyName,
-    deliveryBoyMobile: order.deliveryBoyMobile
-  });
 });
 /* ================= PICKUP ORDER ================= */
 app.post("/api/orders/:id/pickup", async (req, res) => {
