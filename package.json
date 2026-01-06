@@ -19,5 +19,10 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
+  },
+
+  "dependencies": {
+  "twilio": "^4.x.x"
   }
+  
 } 
