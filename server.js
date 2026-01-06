@@ -276,18 +276,31 @@ res.json({success:true, cart});
 });
 
 /* ================= PAYMENT ================= */
-app.post("/api/orders/pay-and-create", async (req,res)=>{
-try{
-const order = await razorpay.orders.create({
-amount: req.body.amount * 100,
-currency:"INR",
-receipt:"rcpt_"+Date.now()
-});
-res.json({success:true, order, key:process.env.RAZORPAY_KEY_ID, amount:order.amount});
-}catch(err){ console.log(err); res.json({success:false}); }
-});
+app.post("/api/orders/pay-and-create", async (req, res) => {
+  try {
+    const { amount, notes } = req.body;
 
+    const order = await razorpay.orders.create({
+      amount: amount * 100,
+      currency: "INR",
+      receipt: "rcpt_" + Date.now(),
+      notes
+    });
+
+    res.json({
+      success: true,
+      key: process.env.RAZORPAY_KEY_ID,
+      amount: order.amount,
+      order
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
 const crypto = require("crypto");
+
 app.post(
   "/api/webhook/razorpay",
   express.raw({ type: "application/json" }),
@@ -296,13 +309,12 @@ app.post(
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
 
-      const expectedSignature = crypto
+      const expected = crypto
         .createHmac("sha256", secret)
         .update(req.body)
         .digest("hex");
 
-      if (expectedSignature !== signature) {
-        console.log("❌ Invalid webhook signature");
+      if (expected !== signature) {
         return res.status(400).send("Invalid signature");
       }
 
@@ -318,23 +330,21 @@ app.post(
         await Order.create({
           paymentId: payment.id,
 
-          wholesalerId: (notes.wholesalerId || "").toLowerCase(),
-          wholesalerName: notes.wholesalerName || "",
-          wholesalerMobile: notes.wholesalerMobile || "",
-          wholesalerAddress: notes.wholesalerAddress || "",
+          wholesalerId: notes.wholesalerId,
+          wholesalerName: notes.wholesalerName,
+          wholesalerMobile: notes.wholesalerMobile,
+          wholesalerAddress: notes.wholesalerAddress,
 
-          productId: notes.productId || "",
-          productName: notes.productName || "",
-          productImg: notes.productImg || "",
-          description: notes.description || "",
-          price: Number(notes.price || 0),
+          productId: notes.productId,
+          productName: notes.productName,
+          price: Number(notes.price),
 
-          retailerName: notes.retailerName || "",
-          retailerMobile: notes.retailerMobile || "",
-          retailerAddress: notes.retailerAddress || "",
+          retailerName: notes.retailerName,
+          retailerMobile: notes.retailerMobile,
+          retailerAddress: notes.retailerAddress,
 
-          vehicleType: notes.vehicleType || "",
-          deliveryCharge: Number(notes.deliveryCharge || 0),
+          vehicleType: notes.vehicleType,
+          deliveryCharge: Number(notes.deliveryCharge),
 
           totalAmount: payment.amount / 100,
 
@@ -343,13 +353,12 @@ app.post(
             { status: "paid", time: Date.now() }
           ]
         });
-
-        console.log("✅ Order created via webhook");
       }
 
       res.json({ success: true });
+
     } catch (err) {
-      console.error("Webhook Error:", err);
+      console.error("Webhook error:", err);
       res.status(500).send("Webhook error");
     }
   }
