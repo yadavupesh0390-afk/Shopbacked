@@ -15,14 +15,10 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "razorpay": "^2.9.4",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "twilio": "^4.23.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
-  },
-
-  "dependencies": {
-  "twilio": "^4.x.x"
   }
-  
-} 
+}
