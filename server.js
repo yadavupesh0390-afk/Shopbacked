@@ -451,7 +451,7 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
     }
 
     // 🔥 DELIVERY BOY PROFILE FETCH
-    const boy = await DeliveryBoy.findById(deliveryBoyId);
+    const boy = await DeliveryProfile.findOne({ deliveryBoyId });
     if (!boy) {
       return res.json({ success: false, message: "Delivery boy not found" });
     }
