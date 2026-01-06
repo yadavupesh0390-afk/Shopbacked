@@ -300,7 +300,7 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
   }
 });
 const crypto = require("crypto");
-
+app.use(express.json());
 app.post(
   "/api/webhook/razorpay",
   express.raw({ type: "application/json" }),
