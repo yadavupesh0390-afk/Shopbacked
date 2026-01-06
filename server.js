@@ -404,19 +404,26 @@ try{
   res.status(500).json({ success:false });
 }
 });
+const client = require("./twilioClient");
+
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try {
     const order = await Order.findById(req.params.orderId);
-    if(!order) return res.status(404).json({success:false, message:"Order not found"});
+    if(!order){
+      return res.status(404).json({ success:false, message:"Order not found" });
+    }
 
-    // 🔹 Fetch delivery boy profile
-    const profile = await DeliveryProfile.findOne({ deliveryBoyId: order.deliveryBoyId });
+    // 🔹 Delivery boy profile
+    const profile = await DeliveryProfile.findOne({
+      deliveryBoyId: order.deliveryBoyId
+    });
+
     if(profile){
       order.deliveryBoyName = profile.name;
       order.deliveryBoyMobile = profile.mobile;
     }
 
-    // 🔹 Generate 4-digit delivery code
+    // 🔹 Generate code
     const code = Math.floor(1000 + Math.random()*9000).toString();
     order.deliveryCode = code;
     order.deliveryCodeTime = new Date();
@@ -428,35 +435,44 @@ app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
 
     await order.save();
 
-    // 🔹 SEND SMS TO RETAILER
+    // 🔹 SEND SMS
     if(order.retailerMobile){
-      const accountSid = process.env.TWILIO_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const client = require('twilio')(accountSid, authToken);
+      const toNumber = order.retailerMobile.startsWith("+")
+        ? order.retailerMobile
+        : "+91" + order.retailerMobile;
 
-      const msg = `🚚 Delivery Code: ${code}
-Retailer: ${order.retailerName}
-Delivery By: ${order.deliveryBoyName || "Delivery Partner"} (${order.deliveryBoyMobile || "N/A"})
-Time: ${order.deliveryCodeTime.toLocaleString()}`;
+      const msg = `
+🚚 DELIVERY VERIFICATION
 
-      await client.messages.create({
-        body: msg,
-        from: process.env.TWILIO_NUMBER,
-        to: order.retailerMobile
-      });
+🔐 Code: ${code}
+👤 Delivery Boy: ${order.deliveryBoyName || "Delivery Partner"}
+📞 Mobile: ${order.deliveryBoyMobile || "N/A"}
+⏰ Time: ${new Date().toLocaleString()}
+
+⚠️ Code valid for 10 minutes
+`;
+
+      try{
+        await client.messages.create({
+          body: msg,
+          from: process.env.TWILIO_NUMBER,
+          to: toNumber
+        });
+        console.log("✅ SMS sent to retailer");
+      }catch(smsErr){
+        console.error("❌ SMS failed:", smsErr.message);
+      }
     }
 
-    // 🔹 Response to frontend
     res.json({
       success:true,
-      code,
       deliveryBoyName: order.deliveryBoyName,
       deliveryBoyMobile: order.deliveryBoyMobile
     });
 
   } catch(err){
     console.error("Generate code error:", err);
-    res.status(500).json({success:false, message:"Server error"});
+    res.status(500).json({ success:false, message:"Server error" });
   }
 });
 /* ================= PICKUP ORDER ================= */
