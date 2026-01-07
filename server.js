@@ -504,24 +504,24 @@ app.post("/api/orders/:id/pickup", async (req, res) => {
     }
 
     // 🔥 DELIVERY BOY PROFILE FETCH
-    const boy = await DeliveryProfile.findOne({ deliveryBoyId });
-    if (!boy) {
-      return res.json({ success: false, message: "Delivery boy not found" });
-    }
+const boy = await DeliveryProfile.findOne({ deliveryBoyId });
+if (!boy) {
+  return res.json({ success: false, message: "Delivery boy not found" });
+}
 
-    // ✅ REAL DELIVERY BOY DETAILS SAVE
-    order.deliveryBoyId = boy._id;
-    order.deliveryBoyName = boy.name;        // 🔥 REAL NAME
-    order.deliveryBoyMobile = boy.mobile;    // 🔥 REAL NUMBER
+// ✅ CORRECT ID SAVE
+order.deliveryBoyId = boy.deliveryBoyId;   // ⭐ FIX
+order.deliveryBoyName = boy.name;
+order.deliveryBoyMobile = boy.mobile;
 
-    // ✅ STATUS UPDATE
-    order.status = "picked_up";
-    order.statusHistory.push({
-      status: "picked_up",
-      time: new Date()
-    });
+// ✅ STATUS UPDATE
+order.status = "picked_up";
+order.statusHistory.push({
+  status: "picked_up",
+  time: new Date()
+});
 
-    await order.save();
+await order.save();
 
     res.json({
       success: true,
