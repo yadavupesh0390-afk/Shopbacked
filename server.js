@@ -127,46 +127,71 @@ app.post(
       const event = JSON.parse(req.body.toString());
 
       if (event.event === "payment.captured") {
+
   const payment = event.payload.payment.entity;
   const notes = payment.notes || {};
 
-  // 🟢 CART PAYMENT
-  if (notes.type === "cart") {
-    const items = JSON.parse(notes.items || "[]");
+  /* ================= CART PAYMENT ================= */
+  if (notes.products) {
 
-    for (let item of items) {
+    const products = JSON.parse(notes.products);
+
+    for (const p of products) {
       await Order.create({
         paymentId: payment.id,
-        wholesalerId: item.wholesalerId,
-        productId: item.productId,
-        productName: item.productName,
-        price: Number(item.price),
+
+        productId: p.productId,
+        productName: p.productName,
+        price: Number(p.price),
+
+        wholesalerId: p.wholesalerId,
+        wholesalerName: p.wholesalerName,
+        wholesalerMobile: p.wholesalerMobile,
+        wholesalerAddress: p.wholesalerAddress,
 
         retailerName: notes.retailerName,
         retailerMobile: notes.retailerMobile,
         retailerAddress: notes.retailerAddress,
 
+        vehicleType: notes.vehicleType,
+        deliveryCharge: Number(notes.deliveryCharge),
+        totalAmount: Number(p.price) + Number(notes.deliveryCharge),
+
         status: "paid",
-        statusHistory: [{ status: "paid", time: Date.now() }]
+        statusHistory: [
+          { status: "paid", time: Date.now() }
+        ]
       });
     }
   }
 
-  // 🟢 DIRECT PAYMENT
-  if (notes.type === "direct") {
+  /* ================= DIRECT BUY ================= */
+  else {
+
     await Order.create({
       paymentId: payment.id,
-      wholesalerId: notes.wholesalerId,
+
       productId: notes.productId,
       productName: notes.productName,
       price: Number(notes.price),
+
+      wholesalerId: notes.wholesalerId,
+      wholesalerName: notes.wholesalerName,
+      wholesalerMobile: notes.wholesalerMobile,
+      wholesalerAddress: notes.wholesalerAddress,
 
       retailerName: notes.retailerName,
       retailerMobile: notes.retailerMobile,
       retailerAddress: notes.retailerAddress,
 
+      vehicleType: notes.vehicleType,
+      deliveryCharge: Number(notes.deliveryCharge),
+      totalAmount: Number(notes.price) + Number(notes.deliveryCharge),
+
       status: "paid",
-      statusHistory: [{ status: "paid", time: Date.now() }]
+      statusHistory: [
+        { status: "paid", time: Date.now() }
+      ]
     });
   }
 }
