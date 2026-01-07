@@ -430,7 +430,7 @@ if (order.status !== "picked_up") {
 if (!order.deliveryBoyId) {
   return res.json({ success:false, message:"Delivery boy not assigned" });
 }
-    }
+    
 
     // 🔹 Delivery boy profile
     const profile = await DeliveryProfile.findOne({
