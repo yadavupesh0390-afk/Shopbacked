@@ -127,39 +127,49 @@ app.post(
       const event = JSON.parse(req.body.toString());
 
       if (event.event === "payment.captured") {
-        const payment = event.payload.payment.entity;
-        const notes = payment.notes || {};
+  const payment = event.payload.payment.entity;
+  const notes = payment.notes || {};
 
-        const already = await Order.findOne({ paymentId: payment.id });
-        if (already) return res.json({ success: true });
+  // 🟢 CART PAYMENT
+  if (notes.type === "cart") {
+    const items = JSON.parse(notes.items || "[]");
 
-        await Order.create({
-          paymentId: payment.id,
+    for (let item of items) {
+      await Order.create({
+        paymentId: payment.id,
+        wholesalerId: item.wholesalerId,
+        productId: item.productId,
+        productName: item.productName,
+        price: Number(item.price),
 
-          wholesalerId: notes.wholesalerId,
-          wholesalerName: notes.wholesalerName,
-          wholesalerMobile: notes.wholesalerMobile,
-          wholesalerAddress: notes.wholesalerAddress,
+        retailerName: notes.retailerName,
+        retailerMobile: notes.retailerMobile,
+        retailerAddress: notes.retailerAddress,
 
-          productId: notes.productId,
-          productName: notes.productName,
-          price: Number(notes.price),
+        status: "paid",
+        statusHistory: [{ status: "paid", time: Date.now() }]
+      });
+    }
+  }
 
-          retailerName: notes.retailerName,
-          retailerMobile: notes.retailerMobile,
-          retailerAddress: notes.retailerAddress,
+  // 🟢 DIRECT PAYMENT
+  if (notes.type === "direct") {
+    await Order.create({
+      paymentId: payment.id,
+      wholesalerId: notes.wholesalerId,
+      productId: notes.productId,
+      productName: notes.productName,
+      price: Number(notes.price),
 
-          vehicleType: notes.vehicleType,
-          deliveryCharge: Number(notes.deliveryCharge),
+      retailerName: notes.retailerName,
+      retailerMobile: notes.retailerMobile,
+      retailerAddress: notes.retailerAddress,
 
-          totalAmount: payment.amount / 100,
-
-          status: "paid",
-          statusHistory: [
-            { status: "paid", time: Date.now() }
-          ]
-        });
-      }
+      status: "paid",
+      statusHistory: [{ status: "paid", time: Date.now() }]
+    });
+  }
+}
 
       res.json({ success: true });
 
