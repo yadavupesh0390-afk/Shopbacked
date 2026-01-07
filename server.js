@@ -418,8 +418,18 @@ try{
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try {
     const order = await Order.findById(req.params.orderId);
-    if(!order){
-      return res.status(404).json({ success:false, message:"Order not found" });
+if(!order){
+  return res.status(404).json({ success:false, message:"Order not found" });
+}
+
+// 🔥 MUST CONDITIONS
+if (order.status !== "picked_up") {
+  return res.json({ success:false, message:"Order not picked up yet" });
+}
+
+if (!order.deliveryBoyId) {
+  return res.json({ success:false, message:"Delivery boy not assigned" });
+}
     }
 
     // 🔹 Delivery boy profile
