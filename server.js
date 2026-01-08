@@ -326,6 +326,7 @@ app.get("/api/products/:id", async (req, res) => {
 
 
 // UPDATE PRODUCT
+// ✅ UPDATE PRODUCT (FINAL – MULTIPLE IMAGE SUPPORT)
 app.put("/api/products/:id", async (req, res) => {
   try {
     const updated = await Product.findByIdAndUpdate(
@@ -334,7 +335,7 @@ app.put("/api/products/:id", async (req, res) => {
         productName: req.body.productName,
         price: req.body.price,
         detail: req.body.detail,
-        image: req.body.image
+        images: req.body.images   // ✅ CORRECT FIELD
       },
       { new: true }
     );
@@ -344,8 +345,9 @@ app.put("/api/products/:id", async (req, res) => {
     }
 
     res.json({ success: true, product: updated });
+
   } catch (err) {
-    console.error(err);
+    console.error("Update product error:", err);
     res.status(500).json({ success: false });
   }
 });
