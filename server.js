@@ -50,7 +50,7 @@ wholesalerId: String,
 productName: String,
 price: Number,
 detail: String,
-image: String,
+images: [String],   // ⭐ multiple images,
 shopName: String,
 mobile: String,
 address: String
