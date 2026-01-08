@@ -309,6 +309,67 @@ res.json({success:false});
 }
 });
 
+// GET PRODUCT BY ID
+app.get("/api/products/:id", async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.json({ success: false, message: "Product not found" });
+    }
+    res.json({ success: true, product });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
+// UPDATE PRODUCT
+app.put("/api/products/:id", async (req, res) => {
+  try {
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        productName: req.body.productName,
+        price: req.body.price,
+        detail: req.body.detail,
+        image: req.body.image
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ success: true, product: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
+
+
+
+
+
+// DELETE PRODUCT
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const deleted = await Product.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
+
 /* ================= PROFILE ================= */
 
 // Wholesaler profile
