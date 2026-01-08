@@ -48,6 +48,10 @@ const User = mongoose.model("User", userSchema);
 const productSchema = new mongoose.Schema({
 wholesalerId: String,
 productName: String,
+category: {
+    type: String,
+    required: true
+  },  
 price: Number,
 detail: String,
 images: [String],   // ⭐ multiple images,
