@@ -1,8 +1,11 @@
 const express = require("express");
-const mongoose = require("mongoose");
+const app = express();
 
-const router = express.Router();
+app.use(express.json());              // ✅ MUST
+app.use(express.urlencoded({ extended: true }));
 
+const cartRoutes = require("./routes/cart");
+app.use("/api/cart", cartRoutes);
 /* ================== SCHEMA ================== */
 const cartItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, required: true },
