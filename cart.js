@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-require("mongoose"); 
+const mongoose = require("mongoose");
 app.use(express.json());              // ✅ MUST
 
 
