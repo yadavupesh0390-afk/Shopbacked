@@ -211,6 +211,7 @@ app.post(
 
 
 
+
 app.use(express.json({ limit: "10mb" }));
 
 
@@ -276,7 +277,13 @@ res.status(500).json({ success:false });
 }
 });
 
+/* ================= CATEGORY ================= */
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  wholesalerId: { type: String, required: true }
+}, { timestamps: true });
 
+const Category = mongoose.model("Category", categorySchema);
 
 
 app.post("/api/login", async (req,res)=>{
@@ -357,7 +364,31 @@ app.put("/api/products/:id", async (req, res) => {
 });
 
 
+// GET categories by wholesaler
+app.get("/api/categories/wholesaler/:wid", async (req, res) => {
+  try {
+    const wid = req.params.wid.toLowerCase();
+    const categories = await Category.find({ wholesalerId: wid }).sort({ createdAt: -1 });
+    res.json({ success: true, categories });
+  } catch (err) {
+    console.error("Fetch categories error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
+// POST a new category (optional)
+app.post("/api/categories", async (req, res) => {
+  try {
+    const { name, wholesalerId } = req.body;
+    if (!name || !wholesalerId) return res.status(400).json({ success: false, message: "Missing info" });
+
+    const category = await Category.create({ name, wholesalerId: wholesalerId.toLowerCase() });
+    res.json({ success: true, category });
+  } catch (err) {
+    console.error("Create category error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 
 // DELETE PRODUCT
