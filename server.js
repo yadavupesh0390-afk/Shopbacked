@@ -362,25 +362,49 @@ app.put("/api/products/:id", async (req, res) => {
 
 
 // GET categories by wholesaler
+// GET categories for a wholesaler
 app.get("/api/categories/wholesaler/:wid", async (req, res) => {
   try {
-    const wid = req.params.wid.toLowerCase();
-    const categories = await Category.find({ wholesalerId: wid }).sort({ createdAt: -1 });
+    const wid = req.params.wid.trim().toLowerCase();
+
+    const categories = await Category.find({
+      wholesalerId: { $regex: `^${wid}$`, $options: "i" }
+    }).sort({ createdAt: -1 });
+
+    if (!categories.length) {
+      return res.json({ success: true, categories: [], message: "No categories found" });
+    }
+
     res.json({ success: true, categories });
+
   } catch (err) {
     console.error("Fetch categories error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 // POST a new category (optional)
+// POST a new category
 app.post("/api/categories", async (req, res) => {
   try {
-    const { name, wholesalerId } = req.body;
-    if (!name || !wholesalerId) return res.status(400).json({ success: false, message: "Missing info" });
+    let { name, wholesalerId } = req.body;
 
-    const category = await Category.create({ name, wholesalerId: wholesalerId.toLowerCase() });
+    if (!name || !wholesalerId) {
+      return res.status(400).json({ success: false, message: "Missing category name or wholesalerId" });
+    }
+
+    // Clean inputs
+    name = name.trim();
+    wholesalerId = wholesalerId.trim().toLowerCase();
+
+    // Check if category already exists for this wholesaler
+    const exists = await Category.findOne({ name, wholesalerId });
+    if (exists) {
+      return res.json({ success: true, category: exists, message: "Category already exists" });
+    }
+
+    const category = await Category.create({ name, wholesalerId });
     res.json({ success: true, category });
+
   } catch (err) {
     console.error("Create category error:", err);
     res.status(500).json({ success: false, message: "Server error" });
