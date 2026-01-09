@@ -4,8 +4,7 @@ const app = express();
 app.use(express.json());              // ✅ MUST
 app.use(express.urlencoded({ extended: true }));
 
-const cartRoutes = require("./routes/cart");
-app.use("/api/cart", cartRoutes);
+
 /* ================== SCHEMA ================== */
 const cartItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, required: true },
