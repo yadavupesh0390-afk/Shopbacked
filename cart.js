@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 
 app.use(express.json());              // ✅ MUST
-app.use(express.urlencoded({ extended: true }));
+
 
 
 /* ================== SCHEMA ================== */
