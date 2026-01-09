@@ -90,13 +90,7 @@ statusHistory: [{ status: String, time: Number }]
 
 const Order = mongoose.model("Order", orderSchema);
 
-/* ================= CART ================= */
-const cartSchema = new mongoose.Schema({
-retailerId: String,
-items: Array
-}, { timestamps: true });
 
-const Cart = mongoose.model("Cart", cartSchema);
 
 const DeliveryProfileSchema = new mongoose.Schema({
 deliveryBoyId: { type: String, required: true, unique: true },
@@ -497,20 +491,7 @@ name:user.name, mobile:user.mobile, address:user.shop_current_location
 }catch(err){ console.log(err); res.status(500).json({success:false}); }
 });
 
-/* ================= CART ================= */
-app.post("/api/cart/save", async (req,res)=>{
-const { retailerId, items } = req.body;
-if(!retailerId) return res.json({success:false});
-let cart = await Cart.findOne({retailerId});
-if(cart){ cart.items = items; await cart.save(); }
-else{ cart = await Cart.create({retailerId, items}); }
-res.json({success:true, cart});
-});
 
-app.get("/api/cart/:retailerId", async (req,res)=>{
-const cart = await Cart.findOne({retailerId:req.params.retailerId});
-res.json({success:true, cart});
-});
 
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
