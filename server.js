@@ -8,7 +8,9 @@ const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
+const cartRoutes = require("./cart");
 
+app.use("/api/cart", cartRoutes);
 const twilio = require("twilio");
 
 const client = twilio(
