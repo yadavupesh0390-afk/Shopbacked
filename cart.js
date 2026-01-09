@@ -26,7 +26,9 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Cart = mongoose.model("Cart", cartSchema);
+// 🔥 FIX IS HERE
+const Cart =
+  mongoose.models.Cart || mongoose.model("Cart", cartSchema);
 
 /* ================== ROUTES ================== */
 
@@ -59,7 +61,7 @@ router.post("/save", async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("ADD TO CART ERROR:", err);
     res.status(500).json({ success: false });
   }
 });
