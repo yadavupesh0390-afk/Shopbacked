@@ -46,18 +46,15 @@ const User = mongoose.model("User", userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
-wholesalerId: String,
-productName: String,
-category: {
-    type: String,
-    required: true
-  },  
-price: Number,
-detail: String,
-images: [String],   // ⭐ multiple images,
-shopName: String,
-mobile: String,
-address: String
+  wholesalerId: String,
+  productName: String,
+  category: String, // store category name
+  price: Number,
+  detail: String,
+  images: [String],
+  shopName: String,
+  mobile: String,
+  address: String
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
