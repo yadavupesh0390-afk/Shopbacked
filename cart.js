@@ -3,7 +3,6 @@ const app = express();
 require("mongoose"); 
 app.use(express.json());              // ✅ MUST
 
-const router = express.Router();
 
 /* ================== SCHEMA ================== */
 const cartItemSchema = new mongoose.Schema({
