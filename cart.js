@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
+const router = express.Router();
 app.use(express.json());              // ✅ MUST
 
 
