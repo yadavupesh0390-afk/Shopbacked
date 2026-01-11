@@ -318,6 +318,39 @@ res.status(500).json({ success:false });
 }
 });
 
+
+app.post("/api/delivery/calculate", (req,res)=>{
+  const { orderAmount, vehicleType, retailerLocation, wholesalerLocation } = req.body;
+  if(!retailerLocation || !wholesalerLocation) return res.json({ error:"Location missing" });
+
+  const distanceKm = calculateDistanceKm(
+    retailerLocation.lat, retailerLocation.lng,
+    wholesalerLocation.lat, wholesalerLocation.lng
+  );
+
+  const delivery = calculateDeliveryCharge({ orderAmount, vehicleType, distanceKm });
+  res.json(delivery);
+});
+
+
+app.post("/api/cart/save", (req,res)=>{
+  const { retailerId, item } = req.body;
+  if(!carts[retailerId]) carts[retailerId] = [];
+  carts[retailerId].push(item);
+  res.json({ success:true });
+});
+app.delete("/api/cart/remove", (req,res)=>{
+  const { retailerId, productId } = req.body;
+  if(carts[retailerId]){
+    carts[retailerId] = carts[retailerId].filter(i=>i.productId !== productId);
+  }
+  res.json({ success:true });
+});
+
+
+
+
+
 /* ================= CATEGORY ================= */
 const categorySchema = new mongoose.Schema({
   name: { type: String, required: true },
