@@ -434,49 +434,7 @@ app.get("/api/cart/:retailerId", (req,res)=>{
 });
 
 
-  // ✅ Calculate final delivery and total
-  let delivery = 0;
-  if(notes.type === "direct"){
-    const productPrice = notes.price;
-    const vehicleType = notes.vehicleType;
-    const retailerLoc = notes.retailerLocation;
-    const wholesalerLoc = notes.wholesalerLocation;
-    const distanceKm = calculateDistanceKm(
-      retailerLoc.lat, retailerLoc.lng,
-      wholesalerLoc.lat, wholesalerLoc.lng
-    );
-    delivery = calculateDeliveryCharge({ orderAmount:productPrice, vehicleType, distanceKm }).retailerPays;
-  }
-  if(notes.type === "cart"){
-    // sum of cart
-    const subtotal = JSON.parse(notes.products).reduce((s,p)=>s+p.price,0);
-    const vehicleType = notes.vehicleType;
-    delivery = calculateDeliveryCharge({ orderAmount:subtotal, vehicleType, distanceKm:10 }).retailerPays; // default 10km
-  }
 
-  const total = amount + delivery;
-
-  // 🔹 Mock Razorpay order creation
-  const order = { id: "order_" + Date.now(), amount: total };
-
-  // 🔹 Save order in DB
-  orders.push({
-    orderId: order.id,
-    type: notes.type,
-    product: notes.type==="direct" ? notes.productId : JSON.parse(notes.products),
-    retailer: {
-      name: notes.retailerName,
-      mobile: notes.retailerMobile,
-      address: notes.retailerAddress
-    },
-    deliveryCharge: delivery,
-    totalAmount: total,
-    status: "pending",
-    createdAt: new Date()
-  });
-
-  res.json({ success:true, key:"RAZORPAY_KEY", amount: total, order });
-});
 
 
 app.get("/api/orders/retailer/:mobile", (req,res)=>{
