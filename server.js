@@ -573,14 +573,26 @@ app.post("/api/retailers/saveProfile", async (req, res) => {
   }
 });
 
-app.get("/api/retailers/profile/:id", async (req,res)=>{
-try{
-const user = await User.findById(req.params.id);
-if(!user) return res.json({success:false});
-res.json({success:true, profile:{
-name:user.name, mobile:user.mobile, address:user.shop_current_location
-}});
-}catch(err){ console.log(err); res.status(500).json({success:false}); }
+app.get("/api/retailers/profile/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) return res.json({ success: false, msg: "User not found" });
+
+    res.json({
+      success: true,
+      profile: {
+        name: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location,
+        location: user.location || null   // ✅ location added
+      }
+    });
+
+  } catch (err) {
+    console.error("Get retailer profile error:", err);
+    res.status(500).json({ success: false, msg: "Server error" });
+  }
 });
 
 
