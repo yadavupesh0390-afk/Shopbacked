@@ -160,30 +160,33 @@ app.post(
 
     for (const p of products) {
       await Order.create({
-        paymentId: payment.id,
+  paymentId: payment.id,
 
-        productId: p.productId,
-        productName: p.productName,
-        price: Number(p.price),
+  productId: p.productId,
+  productName: p.productName,
+  price: Number(p.price),
 
-        wholesalerId: p.wholesalerId,
-        wholesalerName: p.wholesalerName,
-        wholesalerMobile: p.wholesalerMobile,
-        wholesalerAddress: p.wholesalerAddress,
+  wholesalerId: p.wholesalerId,
+  wholesalerName: p.wholesalerName,
+  wholesalerMobile: p.wholesalerMobile,
+  wholesalerAddress: p.wholesalerAddress,
 
-        retailerName: notes.retailerName,
-        retailerMobile: notes.retailerMobile,
-        retailerAddress: notes.retailerAddress,
+  retailerName: notes.retailerName,
+  retailerMobile: notes.retailerMobile,
+  retailerAddress: notes.retailerAddress,
 
-        vehicleType: notes.vehicleType,
-        deliveryCharge: Number(notes.deliveryCharge),
-        totalAmount: Number(p.price) + Number(notes.deliveryCharge),
+  vehicleType: notes.vehicleType,
 
-        status: "paid",
-        statusHistory: [
-          { status: "paid", time: Date.now() }
-        ]
-      });
+  // ✅ CORRECT DELIVERY SAVE
+  deliveryCharge: Number(notes.totalDelivery),
+  retailerDeliveryPay: Number(notes.retailerPays),
+  wholesalerDeliveryPay: Number(notes.wholesalerPays),
+
+  totalAmount: Number(p.price) + Number(notes.retailerPays),
+
+  status: "paid",
+  statusHistory: [{ status: "paid", time: Date.now() }]
+});
     }
   }
 
@@ -191,29 +194,33 @@ app.post(
   else {
 
     await Order.create({
-      paymentId: payment.id,
+  paymentId: payment.id,
 
-      productId: notes.productId,
-      productName: notes.productName,
-      price: Number(notes.price),
+  productId: notes.productId,
+  productName: notes.productName,
+  price: Number(notes.price),
 
-      wholesalerId: notes.wholesalerId,
-      wholesalerName: notes.wholesalerName,
-      wholesalerMobile: notes.wholesalerMobile,
-      wholesalerAddress: notes.wholesalerAddress,
+  wholesalerId: notes.wholesalerId,
+  wholesalerName: notes.wholesalerName,
+  wholesalerMobile: notes.wholesalerMobile,
+  wholesalerAddress: notes.wholesalerAddress,
 
-      retailerName: notes.retailerName,
-      retailerMobile: notes.retailerMobile,
-      retailerAddress: notes.retailerAddress,
+  retailerName: notes.retailerName,
+  retailerMobile: notes.retailerMobile,
+  retailerAddress: notes.retailerAddress,
 
-      vehicleType: notes.vehicleType,
-      deliveryCharge: Number(notes.deliveryCharge),
-      totalAmount: Number(notes.price) + Number(notes.deliveryCharge),
+  vehicleType: notes.vehicleType,
 
-      status: "paid",
-      statusHistory: [
-        { status: "paid", time: Date.now() }
-      ]
+  // ✅ CORRECT DELIVERY SAVE
+  deliveryCharge: Number(notes.totalDelivery),
+  retailerDeliveryPay: Number(notes.retailerPays),
+  wholesalerDeliveryPay: Number(notes.wholesalerPays),
+
+  totalAmount: Number(notes.price) + Number(notes.retailerPays),
+
+  status: "paid",
+  statusHistory: [{ status: "paid", time: Date.now() }]
+});
     });
   }
 }
