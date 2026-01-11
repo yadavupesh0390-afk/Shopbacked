@@ -906,20 +906,33 @@ res.status(500).json({ success: false });
 });
 
 app.get("/api/delivery/profile/:id", async (req, res) => {
-try {
-const profile = await DeliveryProfile.findOne({
-deliveryBoyId: req.params.id
-});
+  try {
+    const profile = await DeliveryProfile.findOne({
+      deliveryBoyId: req.params.id
+    });
 
-res.json({
-success: true,
-profile
-});
+    if(!profile){
+      return res.json({ success:false });
+    }
 
-} catch (err) {
-console.error("Profile Get Error:", err);
-res.status(500).json({ success: false });
-}
+    res.json({
+      success:true,
+      profile: {
+        name: profile.name,
+        mobile: profile.mobile,
+        vehicle: profile.vehicle,
+        vehicleNo: profile.vehicleNo,
+        city: profile.city,
+
+        // ✅ SEND LOCATION
+        location: profile.location || null
+      }
+    });
+
+  } catch (err) {
+    console.error("Profile Get Error:", err);
+    res.status(500).json({ success:false });
+  }
 });
 
 /* ================= GET ORDERS (AUTO HIDE DELIVERED AFTER 10 MIN) ================= */
