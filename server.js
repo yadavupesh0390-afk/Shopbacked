@@ -456,10 +456,7 @@ app.get("/api/cart/:retailerId", (req,res)=>{
 
 
 
-app.get("/api/orders/retailer/:mobile", (req,res)=>{
-  const myOrders = orders.filter(o=>o.retailer.mobile===req.params.mobile);
-  res.json({ orders: myOrders });
-});
+
 
 
 /* ================= CATEGORY ================= */
