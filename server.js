@@ -68,34 +68,41 @@ const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
-retailerDeliveryPay: Number,
-wholesalerDeliveryPay: Number,
-paymentId: String,
-wholesalerId: String,
-wholesalerName: String,
-wholesalerMobile: String,
-wholesalerAddress: String,
-productId: String,
-productName: String,
-productImg: String,
-price: Number,
-retailerName: String,
-retailerMobile: String,
-retailerAddress: String,
-vehicleType: String,
-deliveryCharge: Number,
-totalAmount: Number,
-deliveryCharge: Number(notes.totalDelivery),
-retailerDeliveryPay: Number(notes.retailerPays),
-wholesalerDeliveryPay: Number(notes.wholesalerPays),
-deliveryBoyId: String,
-deliveryBoyName: String,
-deliveryBoyMobile: String,
-deliveryCode: String,
-deliveryCodeTime: Date,
-description: String,
-status: { type: String, default: "paid" },
-statusHistory: [{ status: String, time: Number }]
+  paymentId: String,
+
+  wholesalerId: String,
+  wholesalerName: String,
+  wholesalerMobile: String,
+  wholesalerAddress: String,
+
+  productId: String,
+  productName: String,
+  productImg: String,
+  price: Number,
+
+  retailerName: String,
+  retailerMobile: String,
+  retailerAddress: String,
+
+  vehicleType: String,
+
+  // ✅ DELIVERY BREAKUP (CORRECT PLACE)
+  deliveryCharge: Number,           // total delivery
+  retailerDeliveryPay: Number,      // retailer ka hissa
+  wholesalerDeliveryPay: Number,    // wholesaler ka hissa
+
+  totalAmount: Number,
+
+  deliveryBoyId: String,
+  deliveryBoyName: String,
+  deliveryBoyMobile: String,
+
+  deliveryCode: String,
+  deliveryCodeTime: Date,
+
+  description: String,
+  status: { type: String, default: "paid" },
+  statusHistory: [{ status: String, time: Number }]
 }, { timestamps: true });
 
 const Order = mongoose.model("Order", orderSchema);
