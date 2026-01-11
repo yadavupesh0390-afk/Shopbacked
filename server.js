@@ -492,16 +492,30 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
   }
 });
 
-app.get("/api/wholesalers/profile/:id", async (req,res)=>{
-try{
-const user = await User.findById(req.params.id);
-if(!user) return res.json({success:false});
-res.json({success:true, profile:{
-shopName:user.name,
-mobile:user.mobile,
-address:user.shop_current_location
-}});
-}catch(err){ console.log(err); res.status(500).json({success:false}); }
+app.get("/api/wholesalers/profile/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.json({ success: false });
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location,
+
+        // ✅ NEW FIELD
+        location: user.location || null
+      }
+    });
+
+  } catch (err) {
+    console.error("Get wholesaler profile error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 // Retailer profile
