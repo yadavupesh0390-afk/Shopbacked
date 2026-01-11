@@ -531,42 +531,25 @@ app.get("/api/wholesalers/profile/:id", async (req, res) => {
 });
 
 // Retailer profile
-app.post("/api/wholesalers/saveProfile", async (req, res) => {
+app.post("/api/retailers/saveProfile", async (req, res) => {
   try {
-    const {
-      wholesalerId,
-      shopName,
-      mobile,
-      address,
-      location
-    } = req.body;
+    const { retailerId, name, mobile, address, location } = req.body;
 
-    if (!wholesalerId || !mobile) {
+    if (!retailerId || !mobile) {
       return res.status(400).json({
-        success: false,
-        message: "Wholesaler ID and mobile are required"
+        success:false,
+        message:"Retailer ID and mobile required"
       });
     }
 
-    /* ===== BUILD UPDATE OBJECT SAFELY ===== */
     const updateData = {};
 
-    if (shopName && shopName.trim()) {
-      updateData.name = shopName.trim();
-    }
+    if (name && name.trim()) updateData.name = name.trim();
+    if (mobile && mobile.trim()) updateData.mobile = mobile.trim();
+    if (address && address.trim()) updateData.shop_current_location = address.trim();
 
-    if (mobile && mobile.trim()) {
-      updateData.mobile = mobile.trim();
-    }
-
-    if (address && address.trim()) {
-      updateData.shop_current_location = address.trim();
-    }
-
-    /* ===== LOCATION (OPTIONAL & VALIDATED) ===== */
     if (
       location &&
-      typeof location === "object" &&
       Number.isFinite(location.lat) &&
       Number.isFinite(location.lng)
     ) {
@@ -577,34 +560,28 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(
-      wholesalerId,
+      retailerId,
       { $set: updateData },
-      { new: true }
+      { new:true }
     );
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
+    if(!user){
+      return res.status(404).json({ success:false });
     }
 
     res.json({
-      success: true,
-      profile: {
-        shopName: user.name || "",
-        mobile: user.mobile || "",
-        address: user.shop_current_location || "",
+      success:true,
+      profile:{
+        name: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location,
         location: user.location || null
       }
     });
 
-  } catch (err) {
-    console.error("Save wholesaler profile error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+  } catch(err){
+    console.error(err);
+    res.status(500).json({ success:false });
   }
 });
 app.get("/api/retailers/profile/:id", async (req, res) => {
