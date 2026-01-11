@@ -363,18 +363,54 @@ res.status(500).json({ success:false });
 }
 });
 
+app.post("/api/delivery/calculate", (req, res) => {
+  const {
+    orderAmount,
+    vehicleType,
+    retailerLocation,
+    wholesalerLocation,
+    timeMinutes   // ⬅️ NEW (frontend se bhejna hoga)
+  } = req.body;
 
-app.post("/api/delivery/calculate", (req,res)=>{
-  const { orderAmount, vehicleType, retailerLocation, wholesalerLocation } = req.body;
-  if(!retailerLocation || !wholesalerLocation) return res.json({ error:"Location missing" });
+  // ❌ Location missing
+  if (
+    !retailerLocation ||
+    !wholesalerLocation ||
+    typeof retailerLocation.lat !== "number" ||
+    typeof wholesalerLocation.lat !== "number"
+  ) {
+    return res.json({ success: false, error: "Location missing" });
+  }
 
+  // ✅ Distance calculate
   const distanceKm = calculateDistanceKm(
-    retailerLocation.lat, retailerLocation.lng,
-    wholesalerLocation.lat, wholesalerLocation.lng
+    retailerLocation.lat,
+    retailerLocation.lng,
+    wholesalerLocation.lat,
+    wholesalerLocation.lng
   );
 
-  const delivery = calculateDeliveryCharge({ orderAmount, vehicleType, distanceKm });
-  res.json(delivery);
+  // ✅ Delivery calculate (FINAL RULES)
+  const delivery = calculateDeliveryCharge({
+    orderAmount,
+    vehicleType,
+    distanceKm,
+    timeMinutes: Number(timeMinutes) || 0   // ⬅️ safe fallback
+  });
+
+  // ❌ Minimum order error
+  if (delivery.error) {
+    return res.json({
+      success: false,
+      message: delivery.error
+    });
+  }
+
+  res.json({
+    success: true,
+    distanceKm: Number(distanceKm.toFixed(2)),
+    ...delivery
+  });
 });
 
 
@@ -397,8 +433,6 @@ app.get("/api/cart/:retailerId", (req,res)=>{
   res.json({ items: carts[req.params.retailerId] || [] });
 });
 
-app.post("/api/orders/pay-and-create", async (req,res)=>{
-  const { amount, notes } = req.body;
 
   // ✅ Calculate final delivery and total
   let delivery = 0;
