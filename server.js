@@ -68,6 +68,8 @@ const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
 const orderSchema = new mongoose.Schema({
+retailerDeliveryPay: Number,
+wholesalerDeliveryPay: Number,
 paymentId: String,
 wholesalerId: String,
 wholesalerName: String,
