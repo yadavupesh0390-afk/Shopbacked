@@ -40,7 +40,7 @@ shop_current_location: String,
 location: {
   lat: Number,
   lng: Number
-}  
+},  
 vehicle: String,
 vehicle_model: String,
 vehicle_number: String
