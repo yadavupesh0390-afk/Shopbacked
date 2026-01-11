@@ -427,27 +427,69 @@ app.delete("/api/products/:id", async (req, res) => {
 /* ================= PROFILE ================= */
 
 // Wholesaler profile
-app.post("/api/wholesalers/saveProfile", async (req,res)=>{
-try{
-const { wholesalerId, shopName, mobile, address } = req.body;
-if(!wholesalerId || !mobile) return res.status(400).json({success:false,msg:"Missing info"});
+app.post("/api/wholesalers/saveProfile", async (req, res) => {
+  try {
+    const {
+      wholesalerId,
+      shopName,
+      mobile,
+      address,
+      location        // ✅ NEW (lat, lng)
+    } = req.body;
 
-const user = await User.findByIdAndUpdate(wholesalerId,{
-name: shopName,
-mobile,
-shop_current_location: address
-},{new:true});
+    if (!wholesalerId || !mobile) {
+      return res.status(400).json({
+        success: false,
+        msg: "Missing info"
+      });
+    }
 
-if(!user) return res.json({success:false,msg:"User not found"});    
+    // 🔹 Prepare update object safely
+    const updateData = {
+      name: shopName,
+      mobile,
+      shop_current_location: address
+    };
 
-res.json({success:true, profile:{    
-    shopName:user.name,    
-    mobile:user.mobile,    
-    address:user.shop_current_location    
-}});
+    // ✅ location optional hai
+    if (
+      location &&
+      typeof location.lat === "number" &&
+      typeof location.lng === "number"
+    ) {
+      updateData.location = {
+        lat: location.lat,
+        lng: location.lng
+      };
+    }
 
-}catch(err){ console.log(err); res.status(500).json({success:false}); }
+    const user = await User.findByIdAndUpdate(
+      wholesalerId,
+      updateData,
+      { new: true }
+    );
 
+    if (!user) {
+      return res.json({
+        success: false,
+        msg: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location,
+        location: user.location || null   // ✅ send back
+      }
+    });
+
+  } catch (err) {
+    console.error("Save wholesaler profile error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 app.get("/api/wholesalers/profile/:id", async (req,res)=>{
