@@ -16,7 +16,10 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-
+let retailers = [];      // { retailerId, name, mobile, address, location }
+let carts = {};          // { retailerId: [cartItems] }
+let orders = [];         // all orders
+let products = [];
 
 
 /* ================= MONGO ================= */
