@@ -230,24 +230,69 @@ function calculateDistanceKm(lat1, lng1, lat2, lng2) {
 }
 
 // delivery calculation
-function calculateDeliveryCharge({ orderAmount, vehicleType, distanceKm }) {
-  let base = 50; // base delivery charge
-  let vehicleFactor = 1;
-  if(vehicleType === "two_wheeler") vehicleFactor = 1;
-  if(vehicleType === "three_wheeler") vehicleFactor = 1.5;
-  if(vehicleType === "four_wheeler") vehicleFactor = 2;
+function calculateDeliveryCharge({
+  orderAmount,
+  vehicleType,
+  distanceKm,
+  timeMinutes
+}) {
 
-  const delivery = Math.ceil(base * vehicleFactor + distanceKm * 10);
-  const retailerPercent = 70; // 70% retailer pays
-  const retailerPays = Math.ceil((delivery * retailerPercent) / 100);
+  // ❌ Minimum order
+  if (orderAmount < 100) {
+    return { error: "Minimum order ₹100 required" };
+  }
+
+  // ✅ Free delivery
+  if (orderAmount > 5000) {
+    return {
+      totalDelivery: 0,
+      retailerPays: 0,
+      wholesalerPays: 0,
+      retailerPercent: 0
+    };
+  }
+
+  // ================= VEHICLE RATES =================
+  let perKm = 0;
+  let perMin = 0;
+  const otherCharge = 15;
+
+  if (vehicleType === "two_wheeler") {
+    perKm = 2;
+    perMin = 2.25;
+  }
+  if (vehicleType === "three_wheeler") {
+    perKm = 3.3;
+    perMin = 5;
+  }
+  if (vehicleType === "four_wheeler") {
+    perKm = 6;
+    perMin = 2;
+  }
+
+  // ================= DELIVERY BASE =================
+  const baseDelivery =
+    (distanceKm * perKm) +
+    (timeMinutes * perMin) +
+    otherCharge;
+
+  // ================= RETAILER % =================
+  let retailerPercent = 0;
+
+  if (orderAmount >= 100 && orderAmount <= 500) retailerPercent = 70;
+  else if (orderAmount <= 3000) retailerPercent = 50;
+  else if (orderAmount <= 5000) retailerPercent = 30;
+
+  const retailerPays = Math.ceil(baseDelivery * retailerPercent / 100);
+  const wholesalerPays = Math.ceil(baseDelivery - retailerPays);
 
   return {
+    totalDelivery: Math.ceil(baseDelivery),
     retailerPays,
-    wholesalerPays: delivery - retailerPays,
-    totalDelivery: delivery,
+    wholesalerPays,
     retailerPercent
   };
-    }
+}
 
 
 
