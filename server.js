@@ -95,12 +95,20 @@ const Order = mongoose.model("Order", orderSchema);
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
-deliveryBoyId: { type: String, required: true, unique: true },
-name: String,
-mobile: String,
-vehicle: String,
-vehicleNo: String,
-city: String
+  deliveryBoyId: { type: String, required: true, unique: true },
+  name: String,
+  mobile: String,
+
+  vehicle: String,
+  vehicleNo: String,
+  city: String,
+
+  // ✅ LIVE LOCATION
+  location: {
+    lat: Number,
+    lng: Number
+  }
+
 }, { timestamps: true });
 
 const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema);
