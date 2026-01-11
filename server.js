@@ -577,19 +577,19 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
-    if (!user) return res.json({ success: false, msg: "User not found" });
+    if(!user) return res.json({ success:false, msg:"User not found" });
 
     res.json({
       success: true,
       profile: {
-        name: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location,
-        location: user.location || null   // ✅ location added
+        name: user.name || "",
+        mobile: user.mobile || "",
+        address: user.shop_current_location || "",
+        location: user.location || null   // 🔹 Important
       }
     });
 
-  } catch (err) {
+  } catch(err) {
     console.error("Get retailer profile error:", err);
     res.status(500).json({ success: false, msg: "Server error" });
   }
