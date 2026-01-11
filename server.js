@@ -857,29 +857,59 @@ res.status(500).json({ success:false, message:"Server error" });
 }
 });
 app.post("/api/delivery/profile/save", async (req, res) => {
-try {
-const { deliveryBoyId } = req.body;
+  try {
+    const {
+      deliveryBoyId,
+      name,
+      mobile,
+      vehicle,
+      vehicleNo,
+      city,
+      location
+    } = req.body;
 
-if (!deliveryBoyId) {
-return res.status(400).json({ success: false, message: "ID required" });
-}
+    if (!deliveryBoyId) {
+      return res.status(400).json({
+        success:false,
+        message:"ID required"
+      });
+    }
 
-const profile = await DeliveryProfile.findOneAndUpdate(
-{ deliveryBoyId },
-req.body,
-{ upsert: true, new: true }
-);
+    const updateData = {
+      name,
+      mobile,
+      vehicle,
+      vehicleNo,
+      city
+    };
 
-res.json({
-success: true,
-message: "Profile saved",
-profile
-});
+    if (
+      location &&
+      Number.isFinite(location.lat) &&
+      Number.isFinite(location.lng)
+    ) {
+      updateData.location = {
+        lat: Number(location.lat),
+        lng: Number(location.lng)
+      };
+    }
 
-} catch (err) {
-console.error("Profile Save Error:", err);
-res.status(500).json({ success: false });
-}
+    const profile = await DeliveryProfile.findOneAndUpdate(
+      { deliveryBoyId },
+      { $set: updateData },
+      { upsert:true, new:true }
+    );
+
+    res.json({
+      success:true,
+      message:"Profile saved",
+      profile
+    });
+
+  } catch(err){
+    console.error("Profile Save Error:", err);
+    res.status(500).json({ success:false });
+  }
 });
 
 app.get("/api/delivery/profile/:id", async (req, res) => {
