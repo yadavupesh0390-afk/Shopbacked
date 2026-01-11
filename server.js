@@ -216,6 +216,39 @@ app.post(
 );
 
 
+// distance calculation in KM
+function calculateDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371; // radius of earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// delivery calculation
+function calculateDeliveryCharge({ orderAmount, vehicleType, distanceKm }) {
+  let base = 50; // base delivery charge
+  let vehicleFactor = 1;
+  if(vehicleType === "two_wheeler") vehicleFactor = 1;
+  if(vehicleType === "three_wheeler") vehicleFactor = 1.5;
+  if(vehicleType === "four_wheeler") vehicleFactor = 2;
+
+  const delivery = Math.ceil(base * vehicleFactor + distanceKm * 10);
+  const retailerPercent = 70; // 70% retailer pays
+  const retailerPays = Math.ceil((delivery * retailerPercent) / 100);
+
+  return {
+    retailerPays,
+    wholesalerPays: delivery - retailerPays,
+    totalDelivery: delivery,
+    retailerPercent
+  };
+    }
+
 
 
 app.use(express.json({ limit: "10mb" }));
