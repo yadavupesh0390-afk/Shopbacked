@@ -531,56 +531,82 @@ app.get("/api/wholesalers/profile/:id", async (req, res) => {
 });
 
 // Retailer profile
-app.post("/api/retailers/saveProfile", async (req, res) => {
+app.post("/api/wholesalers/saveProfile", async (req, res) => {
   try {
-    const { retailerId, name, mobile, address, location } = req.body;
+    const {
+      wholesalerId,
+      shopName,
+      mobile,
+      address,
+      location
+    } = req.body;
 
-    if (!retailerId || !mobile) {
-      return res.json({ success: false, msg: "Retailer ID or mobile missing" });
+    if (!wholesalerId || !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Wholesaler ID and mobile are required"
+      });
     }
 
-    // Prepare update object
-    const updateData = {
-      name,
-      mobile,
-      shop_current_location: address
-    };
+    /* ===== BUILD UPDATE OBJECT SAFELY ===== */
+    const updateData = {};
 
-    // ✅ Optional: save location if provided
+    if (shopName && shopName.trim()) {
+      updateData.name = shopName.trim();
+    }
+
+    if (mobile && mobile.trim()) {
+      updateData.mobile = mobile.trim();
+    }
+
+    if (address && address.trim()) {
+      updateData.shop_current_location = address.trim();
+    }
+
+    /* ===== LOCATION (OPTIONAL & VALIDATED) ===== */
     if (
       location &&
-      typeof location.lat === "number" &&
-      typeof location.lng === "number"
+      typeof location === "object" &&
+      Number.isFinite(location.lat) &&
+      Number.isFinite(location.lng)
     ) {
       updateData.location = {
-        lat: location.lat,
-        lng: location.lng
+        lat: Number(location.lat),
+        lng: Number(location.lng)
       };
     }
 
-    const user = await User.findByIdAndUpdate(retailerId, updateData, { new: true });
+    const user = await User.findByIdAndUpdate(
+      wholesalerId,
+      { $set: updateData },
+      { new: true }
+    );
 
     if (!user) {
-      return res.json({ success: false, msg: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
-    // Return full profile including location
     res.json({
       success: true,
       profile: {
-        name: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location,
-        location: user.location || null   // ✅ location added
+        shopName: user.name || "",
+        mobile: user.mobile || "",
+        address: user.shop_current_location || "",
+        location: user.location || null
       }
     });
 
   } catch (err) {
-    console.error("Save retailer profile error:", err);
-    res.status(500).json({ success: false, msg: "Server error" });
+    console.error("Save wholesaler profile error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 });
-
 app.get("/api/retailers/profile/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
