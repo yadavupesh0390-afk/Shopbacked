@@ -397,56 +397,47 @@ res.status(500).json({ success:false });
 }
 });
 
-app.post("/api/delivery/calculate", (req, res) => {
-  const {
-    orderAmount,
-    vehicleType,
-    retailerLocation,
-    wholesalerLocation,
-    timeMinutes   // ⬅️ NEW (frontend se bhejna hoga)
-  } = req.body;
+app.post("/api/delivery/calculate", async (req, res) => {
+  try {
+    const {
+      orderAmount,
+      vehicleType,
+      retailerLocation,
+      wholesalerLocation
+    } = req.body;
 
-  // ❌ Location missing
-  if (
-    !retailerLocation ||
-    !wholesalerLocation ||
-    typeof retailerLocation.lat !== "number" ||
-    typeof wholesalerLocation.lat !== "number"
-  ) {
-    return res.json({ success: false, error: "Location missing" });
-  }
+    if (!retailerLocation || !wholesalerLocation) {
+      return res.json({ success:false, error:"Location missing" });
+    }
 
-  // ✅ Distance calculate
-  const distanceKm = calculateDistanceKm(
-    retailerLocation.lat,
-    retailerLocation.lng,
-    wholesalerLocation.lat,
-    wholesalerLocation.lng
-  );
+    // ✅ ROAD DISTANCE + TIME (OSRM)
+    const { distanceKm, timeMinutes } =
+      await getRoadDistanceTime(retailerLocation, wholesalerLocation);
 
-  // ✅ Delivery calculate (FINAL RULES)
-  const delivery = calculateDeliveryCharge({
-    orderAmount,
-    vehicleType,
-    distanceKm,
-    timeMinutes: Number(timeMinutes) || 0   // ⬅️ safe fallback
-  });
-
-  // ❌ Minimum order error
-  if (delivery.error) {
-    return res.json({
-      success: false,
-      message: delivery.error
+    // ✅ FINAL DELIVERY
+    const delivery = calculateDeliveryCharge({
+      orderAmount,
+      vehicleType,
+      distanceKm,
+      timeMinutes
     });
+
+    if (delivery.error) {
+      return res.json({ success:false, message: delivery.error });
+    }
+
+    res.json({
+      success:true,
+      distanceKm: Number(distanceKm.toFixed(2)),
+      timeMinutes: Math.ceil(timeMinutes),
+      ...delivery
+    });
+
+  } catch (err) {
+    console.error("Delivery calc error:", err.message);
+    res.json({ success:false, error:"Route calculation failed" });
   }
-
-  res.json({
-    success: true,
-    distanceKm: Number(distanceKm.toFixed(2)),
-    ...delivery
-  });
 });
-
 
 app.post("/api/cart/save", (req,res)=>{
   const { retailerId, item } = req.body;
