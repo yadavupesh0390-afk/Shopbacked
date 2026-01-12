@@ -492,17 +492,36 @@ app.post("/api/products", async (req, res) => {
   res.json({ success: true, product });
 });
 
-app.get("/api/products/wholesaler/:id", async (req,res)=>{
-try{
-const id = req.params.id.trim();
-const products = await Product.find({
-wholesalerId: { $regex: "^"+id, $options:"i" }
-}).sort({createdAt:-1});
-res.json({success:true, products});
-}catch(err){
-console.log(err);
-res.json({success:false});
-}
+app.get("/api/products/wholesaler/:id", async (req, res) => {
+  try {
+    const id = req.params.id.trim().toLowerCase();
+
+    // 🔥 Wholesaler live profile
+    const wholesaler = await User.findById(id).select("location");
+
+    if (!wholesaler || !wholesaler.location) {
+      return res.json({ success:false, products:[] });
+    }
+
+    const products = await Product.find({
+      wholesalerId: { $regex: "^" + id, $options:"i" }
+    }).sort({ createdAt: -1 });
+
+    // 🔥 LIVE LOCATION ATTACH
+    const finalProducts = products.map(p => ({
+      ...p.toObject(),
+      wholesalerLocation: wholesaler.location
+    }));
+
+    res.json({
+      success: true,
+      products: finalProducts
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.json({ success:false });
+  }
 });
 
 // GET PRODUCT BY ID
