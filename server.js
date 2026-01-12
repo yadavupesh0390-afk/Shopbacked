@@ -55,13 +55,20 @@ const User = mongoose.model("User", userSchema);
 const productSchema = new mongoose.Schema({
   wholesalerId: String,
   productName: String,
-  category: String, // store category name
+  category: String,
   price: Number,
   detail: String,
   images: [String],
   shopName: String,
   mobile: String,
-  address: String
+  address: String,
+
+  // ✅ ADD THIS
+  wholesalerLocation: {
+    lat: Number,
+    lng: Number
+  }
+
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
