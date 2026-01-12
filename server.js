@@ -484,22 +484,9 @@ res.json({success:true, token, userId:user._id});
 
 /* ================= PRODUCTS ================= */
 app.post("/api/products", async (req, res) => {
-
-  const wholesaler = await User.findById(req.body.wholesalerId);
-
-  if (!wholesaler || !wholesaler.location) {
-    return res.json({
-      success: false,
-      message: "Wholesaler location missing"
-    });
-  }
-
   const product = await Product.create({
     ...req.body,
-    wholesalerId: req.body.wholesalerId.toLowerCase(),
-
-    // ✅ AUTO COPY LOCATION
-    wholesalerLocation: wholesaler.location
+    wholesalerId: req.body.wholesalerId.toLowerCase()
   });
 
   res.json({ success: true, product });
