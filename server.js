@@ -243,16 +243,24 @@ app.post(
 
 
 // distance calculation in KM
-function calculateDistanceKm(lat1, lng1, lat2, lng2) {
-  const R = 6371; // radius of earth in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+const axios = require("axios");
+
+async function getRoadDistanceTime(from, to) {
+  const url = `https://router.project-osrm.org/route/v1/driving/` +
+    `${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
+
+  const res = await axios.get(url);
+
+  if (!res.data.routes || !res.data.routes.length) {
+    throw new Error("OSRM route not found");
+  }
+
+  const route = res.data.routes[0];
+
+  return {
+    distanceKm: route.distance / 1000,     // meters → km
+    timeMinutes: route.duration / 60       // seconds → minutes
+  };
 }
 
 // delivery calculation
