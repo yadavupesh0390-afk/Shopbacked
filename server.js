@@ -497,8 +497,9 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
     const id = req.params.id.trim().toLowerCase();
 
     // 🔥 Wholesaler live profile
-    const wholesaler = await User.findById(id).select("location");
-
+    const wholesaler = await User.findOne({
+  _id: id
+}).select("location");
     if (!wholesaler || !wholesaler.location) {
       return res.json({ success:false, products:[] });
     }
