@@ -63,12 +63,6 @@ const productSchema = new mongoose.Schema({
   mobile: String,
   address: String,
 
-  // ✅ ADD THIS
-  wholesalerLocation: {
-    lat: Number,
-    lng: Number
-  }
-
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
