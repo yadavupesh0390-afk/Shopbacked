@@ -455,7 +455,41 @@ app.get("/api/cart/:retailerId", (req,res)=>{
 
 
 
+app.get("/api/products/by-category/:category", async (req, res) => {
+  try {
+    const category = req.params.category;
 
+    const products = await Product.find({ category });
+
+    // 🔥 Collect wholesaler IDs
+    const wholesalerIds = [
+      ...new Set(products.map(p => p.wholesalerId))
+    ];
+
+    // 🔥 Fetch wholesalers with location
+    const wholesalers = await User.find({
+      _id: { $in: wholesalerIds }
+    }).select("location");
+
+    // 🔥 Map wholesalerId -> location
+    const locationMap = {};
+    wholesalers.forEach(w => {
+      locationMap[w._id] = w.location;
+    });
+
+    // 🔥 Attach live location to products
+    const finalProducts = products.map(p => ({
+      ...p.toObject(),
+      wholesalerLocation: locationMap[p.wholesalerId] || null
+    }));
+
+    res.json({ success: true, products: finalProducts });
+
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false });
+  }
+});
 
 
 
