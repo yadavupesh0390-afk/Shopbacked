@@ -283,7 +283,7 @@ function calculateDeliveryCharge({
   // ================= VEHICLE RATES =================
   let perKm = 0;
   let perMin = 0;
-  const otherCharge = 15;
+  const otherCharge = 5;
 
   if (vehicleType === "two_wheeler") {
     perKm = 2;
@@ -300,8 +300,8 @@ function calculateDeliveryCharge({
 
   // ================= DELIVERY BASE =================
   const baseDelivery =
-    (distanceKm * perKm) +
-    (timeMinutes * perMin) +
+    (distanceKm * perKm * 2) +
+    (timeMinutes * perMin * 2) +
     otherCharge;
 
   // ================= RETAILER % =================
