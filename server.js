@@ -517,16 +517,20 @@ res.json({success:true, token, userId:user._id});
 });
 
 /* ================= PRODUCTS ================= */
+/* ================= PRODUCTS ================= */
 app.post("/api/products", async (req, res) => {
-  const product = await Product.create({
-    ...req.body,
-    wholesalerId: req.body.wholesalerId.toLowerCase()
-  });
+  try {
+    const product = await Product.create({
+      ...req.body,
+      wholesalerId: req.body.wholesalerId.toLowerCase()
+    });
 
-  res.json({ success: true, product });
-});
+    res.json({ success: true, product });
 
-res.json({ success: true, product });
+  } catch (err) {
+    console.error("Create product error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 app.get("/api/products/wholesaler/:id", async (req,res)=>{
