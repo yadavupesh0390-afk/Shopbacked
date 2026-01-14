@@ -38,44 +38,41 @@ router.post("/save", async (req, res) => {
   try {
     const { retailerId, item } = req.body;
 
-    if (!retailerId || !item?.productId || !item?.wholesalerId) {
+    if (!retailerId || !item?.productId) {
       return res.json({ success: false, message: "Invalid data" });
     }
 
     let cart = await Cart.findOne({ retailerId });
 
-    // 🆕 FIRST ITEM → NEW CART
+    // 🆕 CART NOT EXISTS
     if (!cart) {
       cart = new Cart({
         retailerId,
         items: [item]
       });
+      await cart.save();
+      return res.json({ success: true });
+    }
 
+    // 🔥 WHOLESALER CHECK
+    const existingWholesaler = cart.items[0]?.wholesalerId;
+
+    if (existingWholesaler && existingWholesaler !== item.wholesalerId) {
+      return res.json({
+        success: false,
+        message: "Only one wholesaler allowed in cart"
+      });
+    }
+
+    // 🔁 DUPLICATE PRODUCT
+    const index = cart.items.findIndex(
+      i => i.productId.toString() === item.productId.toString()
+    );
+
+    if (index > -1) {
+      cart.items[index].quantity += 1;
     } else {
-
-      // 🔒 WHOLESALER CHECK (🔥 MAIN FIX)
-      const existingWholesalerId = cart.items[0]?.wholesalerId;
-
-      if (
-        existingWholesalerId &&
-        existingWholesalerId !== item.wholesalerId
-      ) {
-        return res.json({
-          success: false,
-          message: "Only one wholesaler allowed in cart"
-        });
-      }
-
-      // 🔁 SAME PRODUCT → INCREASE QTY
-      const index = cart.items.findIndex(
-        i => i.productId.toString() === item.productId.toString()
-      );
-
-      if (index > -1) {
-        cart.items[index].quantity += 1;
-      } else {
-        cart.items.push(item);
-      }
+      cart.items.push(item);
     }
 
     await cart.save();
@@ -83,10 +80,9 @@ router.post("/save", async (req, res) => {
 
   } catch (err) {
     console.error("ADD TO CART ERROR:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 // ✅ GET CART
 router.get("/:retailerId", async (req, res) => {
   try {
