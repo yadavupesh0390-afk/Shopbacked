@@ -33,21 +33,40 @@ const Cart =
   mongoose.models.Cart || mongoose.model("Cart", cartSchema);
 
 /* ================== ROUTES ================== */
-
-// ✅ ADD TO CART
+// ✅ ADD TO CART (SINGLE WHOLESALER ENFORCED)
 router.post("/save", async (req, res) => {
   try {
     const { retailerId, item } = req.body;
 
-    if (!retailerId || !item?.productId) {
+    if (!retailerId || !item?.productId || !item?.wholesalerId) {
       return res.json({ success: false, message: "Invalid data" });
     }
 
     let cart = await Cart.findOne({ retailerId });
 
+    // 🆕 FIRST ITEM → NEW CART
     if (!cart) {
-      cart = new Cart({ retailerId, items: [item] });
+      cart = new Cart({
+        retailerId,
+        items: [item]
+      });
+
     } else {
+
+      // 🔒 WHOLESALER CHECK (🔥 MAIN FIX)
+      const existingWholesalerId = cart.items[0]?.wholesalerId;
+
+      if (
+        existingWholesalerId &&
+        existingWholesalerId !== item.wholesalerId
+      ) {
+        return res.json({
+          success: false,
+          message: "Only one wholesaler allowed in cart"
+        });
+      }
+
+      // 🔁 SAME PRODUCT → INCREASE QTY
       const index = cart.items.findIndex(
         i => i.productId.toString() === item.productId.toString()
       );
