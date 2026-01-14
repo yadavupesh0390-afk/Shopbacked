@@ -270,16 +270,6 @@ function calculateDeliveryCharge({
     return { error: "Minimum order ₹100 required" };
   }
 
-  // ✅ Free delivery
-  if (orderAmount > 5000) {
-    return {
-      totalDelivery: 0,
-      retailerPays: 0,
-      wholesalerPays: 0,
-      retailerPercent: 0
-    };
-  }
-
   // ================= VEHICLE RATES =================
   let perKm = 0;
   let perMin = 0;
@@ -304,6 +294,16 @@ function calculateDeliveryCharge({
     (timeMinutes * perMin * 2) +
     otherCharge;
 
+  // ================= 5000+ ORDER (OPTION 2) =================
+  if (orderAmount > 5000) {
+    return {
+      totalDelivery: Math.ceil(baseDelivery),
+      retailerPays: 0,
+      wholesalerPays: Math.ceil(baseDelivery),
+      retailerPercent: 0
+    };
+  }
+
   // ================= RETAILER % =================
   let retailerPercent = 0;
 
@@ -321,7 +321,6 @@ function calculateDeliveryCharge({
     retailerPercent
   };
 }
-
 
 
 app.use(express.json({ limit: "10mb" }));
