@@ -74,7 +74,10 @@ const orderSchema = new mongoose.Schema({
   wholesalerId: String,
   wholesalerName: String,
   wholesalerMobile: String,
-  wholesalerAddress: String,
+  wholesalerLocation: {
+  lat: Number,
+  lng: Number
+},
 
   productId: String,
   productName: String,
@@ -83,9 +86,14 @@ const orderSchema = new mongoose.Schema({
 
   retailerName: String,
   retailerMobile: String,
-  retailerAddress: String,
+  retailerLocation: {
+  lat: Number,
+  lng: Number
+},
 
   vehicleType: String,
+  
+
 
   // ✅ DELIVERY BREAKUP (CORRECT PLACE)
   deliveryCharge: Number,           // total delivery
