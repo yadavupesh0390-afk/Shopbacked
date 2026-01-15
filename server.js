@@ -210,20 +210,23 @@ app.post(
 
   productId: notes.productId,
   productName: notes.productName,
+  productImg: notes.productImg || "",   // ✅ IMAGE
+
   price: Number(notes.price),
 
   wholesalerId: notes.wholesalerId,
   wholesalerName: notes.wholesalerName,
   wholesalerMobile: notes.wholesalerMobile,
-  wholesalerAddress: notes.wholesalerAddress,
+
+  wholesalerLocation: notes.wholesalerLocation || null, // ✅ LOCATION
 
   retailerName: notes.retailerName,
   retailerMobile: notes.retailerMobile,
-  retailerAddress: notes.retailerAddress,
+
+  retailerLocation: notes.retailerLocation || null, // ✅ LOCATION
 
   vehicleType: notes.vehicleType,
 
-  // ✅ CORRECT DELIVERY SAVE
   deliveryCharge: Number(notes.totalDelivery),
   retailerDeliveryPay: Number(notes.retailerPays),
   wholesalerDeliveryPay: Number(notes.wholesalerPays),
