@@ -266,7 +266,7 @@ function calculateDeliveryCharge({
 }) {
 
   // ❌ Minimum order
-  if (orderAmount < 100) {
+  if (orderAmount < 1) {
     return { error: "Minimum order ₹100 required" };
   }
 
