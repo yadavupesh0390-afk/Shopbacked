@@ -171,27 +171,30 @@ app.post(
       await Order.create({
   paymentId: payment.id,
 
-  productId: p.productId,
-  productName: p.productName,
-  price: Number(p.price),
+  productId: notes.productId,
+  productName: notes.productName,
+  productImg: notes.productImg || "",   // ✅ IMAGE
 
-  wholesalerId: p.wholesalerId,
-  wholesalerName: p.wholesalerName,
-  wholesalerMobile: p.wholesalerMobile,
-  wholesalerAddress: p.wholesalerAddress,
+  price: Number(notes.price),
+
+  wholesalerId: notes.wholesalerId,
+  wholesalerName: notes.wholesalerName,
+  wholesalerMobile: notes.wholesalerMobile,
+
+  wholesalerLocation: notes.wholesalerLocation || null, // ✅ LOCATION
 
   retailerName: notes.retailerName,
   retailerMobile: notes.retailerMobile,
-  retailerAddress: notes.retailerAddress,
+
+  retailerLocation: notes.retailerLocation || null, // ✅ LOCATION
 
   vehicleType: notes.vehicleType,
 
-  // ✅ CORRECT DELIVERY SAVE
   deliveryCharge: Number(notes.totalDelivery),
   retailerDeliveryPay: Number(notes.retailerPays),
   wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-  totalAmount: Number(p.price) + Number(notes.retailerPays),
+  totalAmount: Number(notes.price) + Number(notes.retailerPays),
 
   status: "paid",
   statusHistory: [{ status: "paid", time: Date.now() }]
