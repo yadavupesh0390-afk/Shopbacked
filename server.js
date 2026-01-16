@@ -289,12 +289,20 @@ app.post("/api/notifications/saveToken", async (req, res) => {
     const { userId, fcmToken } = req.body;
 
     if (!userId || !fcmToken) {
-      return res.json({ success:false });
+      return res.status(400).json({ success:false });
     }
 
-    await User.findByIdAndUpdate(userId, {
-      fcmToken
-    });
+    const wholesaler = await Wholesaler.findByIdAndUpdate(
+      userId,
+      { fcmToken },
+      { new:true }
+    );
+
+    if(!wholesaler){
+      return res.status(404).json({ success:false, msg:"Wholesaler not found" });
+    }
+
+    console.log("✅ FCM token saved for wholesaler:", fcmToken);
 
     res.json({ success:true });
 
