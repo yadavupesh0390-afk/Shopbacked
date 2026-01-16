@@ -8,7 +8,7 @@ const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
-const orderRoutes = require("./routes/order");
+const orderRoutes = require("./order");
 const admin = require("./firebaseAdmin");
 app.use("/api", orderRoutes);
 
