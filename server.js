@@ -9,6 +9,7 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 const orderRoutes = require("./routes/order");
+const admin = require("./firebaseAdmin");
 app.use("/api", orderRoutes);
 
 
@@ -42,6 +43,7 @@ role: String, // wholesaler | retailer | delivery
 name: String,
 mobile: String,
 password: String,
+fcmToken: String,   
 shop_current_location: String,
 location: {
   lat: Number,
