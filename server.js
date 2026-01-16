@@ -8,7 +8,12 @@ const Razorpay = require("razorpay");
 const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
+const orderRoutes = require("./routes/order");
+app.use("/api", orderRoutes);
 
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
 const twilio = require("twilio");
 
 const client = twilio(
