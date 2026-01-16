@@ -1,23 +1,11 @@
-import admin from "firebase-admin";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+const admin = require("firebase-admin");
 
-// ES module fix
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// 🔑 Load JSON manually (NO assert, NO error)
-const serviceAccountPath = path.join(__dirname, "firebaseAdmin.json");
 const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, "utf-8")
+  process.env.FIREBASE_SERVICE_ACCOUNT
 );
 
-// 🔥 Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
-export default admin;
+module.exports = admin;
