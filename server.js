@@ -166,13 +166,14 @@ app.post(
 
         const payment = event.payload.payment.entity;
         const notes = payment.notes || {};
+        let order;
 
         /* ================= CART PAYMENT ================= */
         if (notes.products) {
           const products = JSON.parse(notes.products);
 
           for (const p of products) {
-            await Order.create({
+            order = await Order.create({
               paymentId: payment.id,
               productId: notes.productId,
               productName: notes.productName,
@@ -202,7 +203,7 @@ app.post(
         } 
         /* ================= DIRECT BUY ================= */
         else {
-          await Order.create({
+          order = await Order.create({
             paymentId: payment.id,
             productId: notes.productId,
             productName: notes.productName,
@@ -228,6 +229,42 @@ app.post(
             statusHistory: [{ status: "paid", time: Date.now() }]
           });
         }
+
+        // 🔔 SEND PUSH NOTIFICATION (Firebase)
+        if (notes.retailerId) {
+          const user = await User.findById(notes.retailerId);
+          if (user && user.fcmToken) {
+            const message = {
+              token: user.fcmToken,
+              notification: {
+                title: "Payment Successful ✅",
+                body: `Your payment of ₹${notes.price} is successful.`
+              },
+              data: {
+                orderId: order._id.toString()
+              }
+            };
+            admin.messaging().send(message)
+              .then(r => console.log("FCM Notification sent ✅", r))
+              .catch(err => console.error("FCM failed ❌", err));
+          }
+        }
+
+        // 🔹 SEND SMS via Twilio
+        if (notes.retailerMobile) {
+          const toNumber = notes.retailerMobile.startsWith("+")
+            ? notes.retailerMobile
+            : "+91" + notes.retailerMobile;
+
+          client.messages.create({
+            body: `Payment of ₹${notes.price} successful. Order ID: ${order._id}`,
+            from: process.env.TWILIO_NUMBER,
+            to: toNumber
+          })
+          .then(msg => console.log("SMS sent ✅", msg.sid))
+          .catch(err => console.error("SMS failed ❌", err));
+        }
+
       }
 
       // ✅ SUCCESS RESPONSE
