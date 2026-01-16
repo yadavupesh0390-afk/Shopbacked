@@ -161,18 +161,19 @@ app.post(
       }
 
       const event = JSON.parse(req.body.toString());
-
+      console.log("✅ Webhook Hit");
+      console.log("EVENT:", event.event);
       if (event.event === "payment.captured") {
 
         const payment = event.payload.payment.entity;
         const notes = payment.notes || {};
         console.log("NOTES:", notes);
-  console.log("WHOLESALER ID:", notes.wholesalerId);
+        console.log("WHOLESALER ID:", notes.wholesalerId);
 
   // 🔹 Fetch wholesaler to get FCM token
-  const wholesaler = await User.findById(notes.wholesalerId);
+        const wholesaler = await User.findById(notes.wholesalerId);
 
-  console.log("FCM TOKEN:", wholesaler?.fcmToken);
+        console.log("FCM TOKEN:", wholesaler?.fcmToken);
         let order;
 
         /* ================= CART PAYMENT ================= */
