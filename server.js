@@ -274,7 +274,25 @@ else {
     }
   }
 );
+app.post("/api/notifications/saveToken", async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
 
+    if (!userId || !fcmToken) {
+      return res.json({ success:false });
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      fcmToken
+    });
+
+    res.json({ success:true });
+
+  } catch (err) {
+    console.error("Save token error:", err);
+    res.status(500).json({ success:false });
+  }
+});
 
 // distance calculation in KM
 const axios = require("axios");
