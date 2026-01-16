@@ -166,80 +166,101 @@ app.post(
   const notes = payment.notes || {};
 
   /* ================= CART PAYMENT ================= */
-  if (notes.products) {
+if (notes.products) {
 
-    const products = JSON.parse(notes.products);
+  const products = JSON.parse(notes.products);
 
-    for (const p of products) {
-      await Order.create({
-  paymentId: payment.id,
+  for (const p of products) {
 
-  productId: notes.productId,
-  productName: notes.productName,
-  productImg: notes.productImg || "",   // ✅ IMAGE
+    const order = await Order.create({
+      paymentId: payment.id,
 
-  price: Number(notes.price),
+      productId: p.productId,
+      productName: p.productName,
+      productImg: p.productImg || "",
 
-  wholesalerId: notes.wholesalerId,
-  wholesalerName: notes.wholesalerName,
-  wholesalerMobile: notes.wholesalerMobile,
+      price: Number(p.price),
 
-  wholesalerLocation: notes.wholesalerLocation || null, // ✅ LOCATION
+      wholesalerId: p.wholesalerId,
+      wholesalerName: p.wholesalerName,
+      wholesalerMobile: p.wholesalerMobile,
+      wholesalerLocation: p.wholesalerLocation || null,
 
-  retailerName: notes.retailerName,
-  retailerMobile: notes.retailerMobile,
+      retailerName: notes.retailerName,
+      retailerMobile: notes.retailerMobile,
+      retailerLocation: notes.retailerLocation || null,
 
-  retailerLocation: notes.retailerLocation || null, // ✅ LOCATION
+      vehicleType: notes.vehicleType,
 
-  vehicleType: notes.vehicleType,
+      deliveryCharge: Number(p.totalDelivery),
+      retailerDeliveryPay: Number(p.retailerPays),
+      wholesalerDeliveryPay: Number(p.wholesalerPays),
 
-  deliveryCharge: Number(notes.totalDelivery),
-  retailerDeliveryPay: Number(notes.retailerPays),
-  wholesalerDeliveryPay: Number(notes.wholesalerPays),
+      totalAmount: Number(p.price) + Number(p.retailerPays),
 
-  totalAmount: Number(notes.price) + Number(notes.retailerPays),
+      status: "paid",
+      statusHistory: [{ status: "paid", time: Date.now() }]
+    });
 
-  status: "paid",
-  statusHistory: [{ status: "paid", time: Date.now() }]
-});
+    /* 🔔 NOTIFICATION (SAFE) */
+    const payload = {
+      notification: {
+        title: "📦 New Order Received",
+        body: `Product: ${p.productName}`
+      }
+    };
+
+    const wholesaler = await User.findById(p.wholesalerId);
+    if (wholesaler?.fcmToken) {
+      await admin.messaging().sendToDevice(wholesaler.fcmToken, payload);
     }
   }
+}
 
   /* ================= DIRECT BUY ================= */
-  else {
+else {
 
-    await Order.create({
-  paymentId: payment.id,
+  const order = await Order.create({
+    paymentId: payment.id,
 
-  productId: notes.productId,
-  productName: notes.productName,
-  productImg: notes.productImg || "",   // ✅ IMAGE
+    productId: notes.productId,
+    productName: notes.productName,
+    productImg: notes.productImg || "",
 
-  price: Number(notes.price),
+    price: Number(notes.price),
 
-  wholesalerId: notes.wholesalerId,
-  wholesalerName: notes.wholesalerName,
-  wholesalerMobile: notes.wholesalerMobile,
+    wholesalerId: notes.wholesalerId,
+    wholesalerName: notes.wholesalerName,
+    wholesalerMobile: notes.wholesalerMobile,
+    wholesalerLocation: notes.wholesalerLocation || null,
 
-  wholesalerLocation: notes.wholesalerLocation || null, // ✅ LOCATION
+    retailerName: notes.retailerName,
+    retailerMobile: notes.retailerMobile,
+    retailerLocation: notes.retailerLocation || null,
 
-  retailerName: notes.retailerName,
-  retailerMobile: notes.retailerMobile,
+    vehicleType: notes.vehicleType,
 
-  retailerLocation: notes.retailerLocation || null, // ✅ LOCATION
+    deliveryCharge: Number(notes.totalDelivery),
+    retailerDeliveryPay: Number(notes.retailerPays),
+    wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-  vehicleType: notes.vehicleType,
+    totalAmount: Number(notes.price) + Number(notes.retailerPays),
 
-  deliveryCharge: Number(notes.totalDelivery),
-  retailerDeliveryPay: Number(notes.retailerPays),
-  wholesalerDeliveryPay: Number(notes.wholesalerPays),
+    status: "paid",
+    statusHistory: [{ status: "paid", time: Date.now() }]
+  });
 
-  totalAmount: Number(notes.price) + Number(notes.retailerPays),
+  /* 🔔 NOTIFICATION (SAFE) */
+  const payload = {
+    notification: {
+      title: "📦 New Order Received",
+      body: `Product: ${notes.productName}`
+    }
+  };
 
-  status: "paid",
-  statusHistory: [{ status: "paid", time: Date.now() }]
-});
-    
+  const wholesaler = await User.findById(notes.wholesalerId);
+  if (wholesaler?.fcmToken) {
+    await admin.messaging().sendToDevice(wholesaler.fcmToken, payload);
   }
 }
 
