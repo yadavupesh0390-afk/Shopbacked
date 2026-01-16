@@ -43,7 +43,10 @@ role: String, // wholesaler | retailer | delivery
 name: String,
 mobile: String,
 password: String,
-fcmToken: String,   
+fcmToken: {
+    type: String,
+    default: null
+},   
 shop_current_location: String,
 location: {
   lat: Number,
