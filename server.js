@@ -291,8 +291,8 @@ app.post("/api/notifications/saveToken", async (req, res) => {
   try {
     const { userId, role, fcmToken } = req.body;
 
-    if (!userId || !fcmToken) {
-      return res.status(400).json({ success: false });
+    if (!userId || !role || !fcmToken) {
+      return res.status(400).json({ success: false, message: "Missing data" });
     }
 
     let user;
@@ -303,11 +303,16 @@ app.post("/api/notifications/saveToken", async (req, res) => {
         { fcmToken },
         { new: true }
       );
-    } else {
-      return res.status(400).json({ success: false, msg: "Invalid role" });
+    } 
+    // future ke liye
+    // else if (role === "delivery") { ... }
+    // else if (role === "retailer") { ... }
+
+    else {
+      return res.status(400).json({ success: false, message: "Invalid role" });
     }
 
-    console.log("✅ FCM TOKEN SAVED:", user?.fcmToken);
+    console.log("✅ FCM TOKEN SAVED:", user.fcmToken);
 
     res.json({ success: true });
   } catch (err) {
