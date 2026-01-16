@@ -9,7 +9,7 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 const orderRoutes = require("./order");
-const admin = require("./firebaseAdmin");  // ./ मतलब same folder
+  // ./ मतलब same folder
 app.use("/api", orderRoutes);
 
 
