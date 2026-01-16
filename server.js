@@ -164,108 +164,73 @@ app.post(
 
       if (event.event === "payment.captured") {
 
-  const payment = event.payload.payment.entity;
-  const notes = payment.notes || {};
+        const payment = event.payload.payment.entity;
+        const notes = payment.notes || {};
 
-  /* ================= CART PAYMENT ================= */
-if (notes.products) {
+        /* ================= CART PAYMENT ================= */
+        if (notes.products) {
+          const products = JSON.parse(notes.products);
 
-  const products = JSON.parse(notes.products);
+          for (const p of products) {
+            await Order.create({
+              paymentId: payment.id,
+              productId: notes.productId,
+              productName: notes.productName,
+              productImg: notes.productImg || "",
+              price: Number(notes.price),
 
-  for (const p of products) {
+              wholesalerId: notes.wholesalerId,
+              wholesalerName: notes.wholesalerName,
+              wholesalerMobile: notes.wholesalerMobile,
+              wholesalerLocation: notes.wholesalerLocation || null,
 
-    const order = await Order.create({
-      paymentId: payment.id,
+              retailerName: notes.retailerName,
+              retailerMobile: notes.retailerMobile,
+              retailerLocation: notes.retailerLocation || null,
 
-      productId: p.productId,
-      productName: p.productName,
-      productImg: p.productImg || "",
+              vehicleType: notes.vehicleType,
+              deliveryCharge: Number(notes.totalDelivery),
+              retailerDeliveryPay: Number(notes.retailerPays),
+              wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-      price: Number(p.price),
+              totalAmount: Number(notes.price) + Number(notes.retailerPays),
+              status: "paid",
+              statusHistory: [{ status: "paid", time: Date.now() }]
+            });
+          }
 
-      wholesalerId: p.wholesalerId,
-      wholesalerName: p.wholesalerName,
-      wholesalerMobile: p.wholesalerMobile,
-      wholesalerLocation: p.wholesalerLocation || null,
+        } 
+        /* ================= DIRECT BUY ================= */
+        else {
+          await Order.create({
+            paymentId: payment.id,
+            productId: notes.productId,
+            productName: notes.productName,
+            productImg: notes.productImg || "",
+            price: Number(notes.price),
 
-      retailerName: notes.retailerName,
-      retailerMobile: notes.retailerMobile,
-      retailerLocation: notes.retailerLocation || null,
+            wholesalerId: notes.wholesalerId,
+            wholesalerName: notes.wholesalerName,
+            wholesalerMobile: notes.wholesalerMobile,
+            wholesalerLocation: notes.wholesalerLocation || null,
 
-      vehicleType: notes.vehicleType,
+            retailerName: notes.retailerName,
+            retailerMobile: notes.retailerMobile,
+            retailerLocation: notes.retailerLocation || null,
 
-      deliveryCharge: Number(p.totalDelivery),
-      retailerDeliveryPay: Number(p.retailerPays),
-      wholesalerDeliveryPay: Number(p.wholesalerPays),
+            vehicleType: notes.vehicleType,
+            deliveryCharge: Number(notes.totalDelivery),
+            retailerDeliveryPay: Number(notes.retailerPays),
+            wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-      totalAmount: Number(p.price) + Number(p.retailerPays),
-
-      status: "paid",
-      statusHistory: [{ status: "paid", time: Date.now() }]
-    });
-
-    /* 🔔 NOTIFICATION (SAFE) */
-    const payload = {
-      notification: {
-        title: "📦 New Order Received",
-        body: `Product: ${p.productName}`
+            totalAmount: Number(notes.price) + Number(notes.retailerPays),
+            status: "paid",
+            statusHistory: [{ status: "paid", time: Date.now() }]
+          });
+        }
       }
-    };
 
-    const wholesaler = await User.findById(p.wholesalerId);
-    if (wholesaler?.fcmToken) {
-      await admin.messaging().sendToDevice(wholesaler.fcmToken, payload);
-    }
-  }
-}
-
-  /* ================= DIRECT BUY ================= */
-else {
-
-  const order = await Order.create({
-    paymentId: payment.id,
-
-    productId: notes.productId,
-    productName: notes.productName,
-    productImg: notes.productImg || "",
-
-    price: Number(notes.price),
-
-    wholesalerId: notes.wholesalerId,
-    wholesalerName: notes.wholesalerName,
-    wholesalerMobile: notes.wholesalerMobile,
-    wholesalerLocation: notes.wholesalerLocation || null,
-
-    retailerName: notes.retailerName,
-    retailerMobile: notes.retailerMobile,
-    retailerLocation: notes.retailerLocation || null,
-
-    vehicleType: notes.vehicleType,
-
-    deliveryCharge: Number(notes.totalDelivery),
-    retailerDeliveryPay: Number(notes.retailerPays),
-    wholesalerDeliveryPay: Number(notes.wholesalerPays),
-
-    totalAmount: Number(notes.price) + Number(notes.retailerPays),
-
-    status: "paid",
-    statusHistory: [{ status: "paid", time: Date.now() }]
-  });
-
-  /* 🔔 NOTIFICATION (SAFE) */
-  const payload = {
-    notification: {
-      title: "📦 New Order Received",
-      body: `Product: ${notes.productName}`
-    }
-  };
-
-  const wholesaler = await User.findById(notes.wholesalerId);
-  if (wholesaler?.fcmToken) {
-    await admin.messaging().sendToDevice(wholesaler.fcmToken, payload);
-  }
-
-
+      // ✅ SUCCESS RESPONSE
       res.json({ success: true });
 
     } catch (err) {
