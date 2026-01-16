@@ -264,7 +264,7 @@ else {
   if (wholesaler?.fcmToken) {
     await admin.messaging().sendToDevice(wholesaler.fcmToken, payload);
   }
-}
+
 
       res.json({ success: true });
 
