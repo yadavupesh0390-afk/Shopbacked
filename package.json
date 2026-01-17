@@ -1,7 +1,6 @@
 {
   "name": "sabkasathi-backend",
   "version": "1.0.0",
-   "type": "module",
   "description": "Wholesale Retail Delivery Backend with Razorpay and Firebase Notifications",
   "main": "server.js",
   "scripts": {
