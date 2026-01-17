@@ -134,7 +134,9 @@ status: { type: String, default: "paid" },
 statusHistory: [{ status: String, time: Number }]
 }, { timestamps: true });
 
-module.exports = mongoose.model("Order", orderSchema);
+const Order = mongoose.model("Order", orderSchema);
+
+
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
