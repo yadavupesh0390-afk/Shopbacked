@@ -291,6 +291,8 @@ app.post(
   }
 );
 
+app.use(express.json({ limit: "10mb" }));
+
 app.post("/api/notifications/save-token", async (req, res) => {
   try {
     const { userId, fcmToken } = req.body;
@@ -430,7 +432,7 @@ function calculateDeliveryCharge({
 }
 
 
-app.use(express.json({ limit: "10mb" }));
+
 
 const cartRoutes = require("./cart");
 
