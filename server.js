@@ -302,57 +302,6 @@ app.post(
 
 app.use(express.json({ limit: "10mb" }));
 
-app.post("/api/notifications/save-token", async (req, res) => {
-  try {
-    const { userId, fcmToken } = req.body;
-
-    if (!userId || !fcmToken) {
-      return res.json({
-        success: false,
-        message: "Missing userId or fcmToken"
-      });
-    }
-
-    await User.findByIdAndUpdate(userId, { fcmToken });
-
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("Save FCM Token Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-app.post("/api/notifications/test", async (req, res) => {
-  try {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.json({
-        success: false,
-        message: "FCM token required"
-      });
-    }
-
-    const message = {
-      token,
-      notification: {
-        title: "Test Notification 🔔",
-        body: "Firebase notification working fine ✅"
-      }
-    };
-
-    await admin.messaging().send(message);
-
-    res.json({ success: true, message: "Notification sent" });
-
-  } catch (err) {
-    console.error("Notification Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-
-// test
 
 // distance calculation in KM
 const axios = require("axios");
