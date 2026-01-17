@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const Order = require("../models/Order");            // ✅ correct path
+const orderRoutes = require("./order");            // ✅ correct path
               // fcmToken yahin se aayega
 const admin = require("./firebaseAdmin");           // firebase admin
 
