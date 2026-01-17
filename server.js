@@ -88,71 +88,51 @@ const productSchema = new mongoose.Schema({
 const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
-const mongoose = require("mongoose");
-
 const orderSchema = new mongoose.Schema({
+paymentId: String,
+image: { type: String },
+wholesalerId: String,
+wholesalerName: String,
+wholesalerMobile: String,
+wholesalerLocation: {
+lat: Number,
+lng: Number
+},
 
-  paymentId: String,
-  image: String,
+productId: String,
+productName: String,
+productImg: String,
+price: Number,
 
-  wholesalerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  },
-  wholesalerName: String,
-  wholesalerMobile: String,
-  wholesalerLocation: {
-    lat: Number,
-    lng: Number
-  },
+retailerName: String,
+retailerMobile: String,
+retailerLocation: {
+lat: Number,
+lng: Number
+},
 
-  productId: String,
-  productName: String,
-  productImg: String,
-  price: Number,
+vehicleType: String,
 
-  retailerName: String,
-  retailerMobile: String,
-  retailerLocation: {
-    lat: Number,
-    lng: Number
-  },
+// ✅ DELIVERY BREAKUP (CORRECT PLACE)
+deliveryCharge: Number,           // total delivery
+retailerDeliveryPay: Number,      // retailer ka hissa
+wholesalerDeliveryPay: Number,    // wholesaler ka hissa
 
-  vehicleType: String,
+totalAmount: Number,
 
-  // 🚚 Delivery breakup
-  deliveryCharge: Number,
-  retailerDeliveryPay: Number,
-  wholesalerDeliveryPay: Number,
+deliveryBoyId: String,
+deliveryBoyName: String,
+deliveryBoyMobile: String,
 
-  totalAmount: Number,
+deliveryCode: String,
+deliveryCodeTime: Date,
 
-  deliveryBoyId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  },
-  deliveryBoyName: String,
-  deliveryBoyMobile: String,
-
-  deliveryCode: String,
-  deliveryCodeTime: Date,
-
-  description: String,
-
-  status: {
-    type: String,
-    default: "paid"
-  },
-
-  statusHistory: [{
-    status: String,
-    time: { type: Date, default: Date.now }
-  }]
-
+description: String,
+status: { type: String, default: "paid" },
+statusHistory: [{ status: String, time: Number }]
 }, { timestamps: true });
 
-module.exports = mongoose.model("Order", orderSchema);
-
+const Order = mongoose.model("Order", orderSchema);
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
