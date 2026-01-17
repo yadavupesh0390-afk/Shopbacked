@@ -9,7 +9,7 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 const orderRoutes = require("./order");
-import notificationRoutes from "./routes/notifications.js";
+import notificationRoutes from "./notifications.js";
 app.use("/api/notifications", notificationRoutes);
 
 app.use("/api", orderRoutes);
