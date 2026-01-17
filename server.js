@@ -20,7 +20,7 @@ const paymentRoutes = require("./routes/payments");
 const admin = require("./firebaseAdmin");
 
 /* ================= USE ROUTES ================= */
-app.use("/api", orderRoutes);
+
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/payments", paymentRoutes);
 
