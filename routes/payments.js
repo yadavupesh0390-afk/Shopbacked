@@ -1,18 +1,30 @@
 const express = require("express");
 const router = express.Router();
 
-const orderRoutes = require("../order");            // ✅ correct path
-              // fcmToken yahin se aayega
-const admin = require("../firebaseAdmin");           // firebase admin
+// ✅ MODELS (IMPORTANT)
+const Order = require("../order");          // order.js ROOT me hai
+
+// ✅ Firebase Admin
+const admin = require("../firebaseAdmin");
 
 router.post("/payment-success", async (req, res) => {
   try {
     const { orderId } = req.body;
 
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId required"
+      });
+    }
+
     // 1️⃣ Order find karo
     const order = await Order.findById(orderId);
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
     }
 
     // 2️⃣ Order paid mark karo
@@ -53,4 +65,4 @@ router.post("/payment-success", async (req, res) => {
   }
 });
 
-module.exports = router;   // ⭐ MOST IMPORTANT
+module.exports = router; // ⭐ VERY IMPORTANT
