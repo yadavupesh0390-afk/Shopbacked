@@ -3,7 +3,7 @@ const router = express.Router();
 
 const orderRoutes = require("../order");            // ✅ correct path
               // fcmToken yahin se aayega
-const admin = require("./firebaseAdmin");           // firebase admin
+const admin = require("../firebaseAdmin");           // firebase admin
 
 router.post("/payment-success", async (req, res) => {
   try {
