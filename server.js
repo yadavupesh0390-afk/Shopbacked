@@ -291,38 +291,6 @@ app.post(
   }
 );
 app.post("/api/notifications/saveToken", async (req, res) => {
-  try {
-    const { userId, fcmToken } = req.body;
-
-    if (!userId || !fcmToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing userId or fcmToken"
-      });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { fcmToken },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    console.log("✅ FCM TOKEN SAVED IN DB:", user.fcmToken);
-
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("Save token error:", err);
-    res.status(500).json({ success: false });
-  }
-});
 
 
 // test
