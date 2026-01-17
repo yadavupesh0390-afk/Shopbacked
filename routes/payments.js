@@ -1,5 +1,5 @@
 import express from "express";
-import Order from "../models/Order.js";
+import Order from "./Order.js";
 import Notification from "../models/Notification.js";
 import { sendNotification } from "../utils/sendNotification.js";
 
