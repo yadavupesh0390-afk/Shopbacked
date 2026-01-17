@@ -17,6 +17,7 @@ app.use(express.json());
 const orderRoutes = require("./order");
 const notificationRoutes = require("./routes/notifications");
 const paymentRoutes = require("./routes/payments");
+const admin = require("./firebaseAdmin");
 
 /* ================= USE ROUTES ================= */
 app.use("/api", orderRoutes);
