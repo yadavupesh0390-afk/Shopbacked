@@ -88,16 +88,23 @@ const productSchema = new mongoose.Schema({
 const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
+const mongoose = require("mongoose");
+
 const orderSchema = new mongoose.Schema({
+
   paymentId: String,
-  image: { type: String },
-  wholesalerId: String,
+  image: String,
+
+  wholesalerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
   wholesalerName: String,
   wholesalerMobile: String,
   wholesalerLocation: {
-  lat: Number,
-  lng: Number
-},
+    lat: Number,
+    lng: Number
+  },
 
   productId: String,
   productName: String,
@@ -107,22 +114,23 @@ const orderSchema = new mongoose.Schema({
   retailerName: String,
   retailerMobile: String,
   retailerLocation: {
-  lat: Number,
-  lng: Number
-},
+    lat: Number,
+    lng: Number
+  },
 
   vehicleType: String,
-  
 
-
-  // ✅ DELIVERY BREAKUP (CORRECT PLACE)
-  deliveryCharge: Number,           // total delivery
-  retailerDeliveryPay: Number,      // retailer ka hissa
-  wholesalerDeliveryPay: Number,    // wholesaler ka hissa
+  // 🚚 Delivery breakup
+  deliveryCharge: Number,
+  retailerDeliveryPay: Number,
+  wholesalerDeliveryPay: Number,
 
   totalAmount: Number,
 
-  deliveryBoyId: String,
+  deliveryBoyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
   deliveryBoyName: String,
   deliveryBoyMobile: String,
 
@@ -130,11 +138,20 @@ const orderSchema = new mongoose.Schema({
   deliveryCodeTime: Date,
 
   description: String,
-  status: { type: String, default: "paid" },
-  statusHistory: [{ status: String, time: Number }]
+
+  status: {
+    type: String,
+    default: "paid"
+  },
+
+  statusHistory: [{
+    status: String,
+    time: { type: Date, default: Date.now }
+  }]
+
 }, { timestamps: true });
 
-const Order = mongoose.model("Order", orderSchema);
+module.exports = mongoose.model("Order", orderSchema);
 
 
 
