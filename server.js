@@ -88,7 +88,6 @@ const productSchema = new mongoose.Schema({
 const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
-const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
 paymentId: String,
