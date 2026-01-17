@@ -5,15 +5,23 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
-const TEN_MIN = 10 * 60 * 1000;
+
 const app = express();
+const TEN_MIN = 10 * 60 * 1000;
+
+/* ================= MIDDLEWARE ================= */
 app.use(cors());
+app.use(express.json());
+
+/* ================= ROUTES ================= */
 const orderRoutes = require("./order");
+const notificationRoutes = require("./routes/notifications");
+const paymentRoutes = require("./routes/payments");
 
-const admin = require("./firebaseAdmin");
-
-
+/* ================= USE ROUTES ================= */
 app.use("/api", orderRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/payments", paymentRoutes);
 
 
 const twilio = require("twilio");
