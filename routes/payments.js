@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 // ✅ MODELS (IMPORTANT)
-const Order = require("../order");          // order.js ROOT me hai
+const Order = require("../order");   // mongoose model          // order.js ROOT me hai
 
 // ✅ Firebase Admin
 const admin = require("../firebaseAdmin");
