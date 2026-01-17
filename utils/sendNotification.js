@@ -1,4 +1,4 @@
-import admin from "../firebase.js";
+import admin from "./firebase.js";
 
 export async function sendNotification(token, title, body, data = {}) {
   if (!token) return;
