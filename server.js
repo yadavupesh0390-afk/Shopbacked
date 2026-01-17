@@ -14,7 +14,7 @@ app.use(cors());
 
 
 /* ================= ROUTES ================= */
-const orderRoutes = require("./order");
+const Order = require("../models/Order");
 const notificationRoutes = require("./routes/notifications");
 const paymentRoutes = require("./routes/payments");
 const admin = require("./firebaseAdmin");
