@@ -88,7 +88,7 @@ const productSchema = new mongoose.Schema({
 const Product = mongoose.model("Product", productSchema);
 
 /* ================= ORDER ================= */
-const orderSchema = new mongoose.Schema({
+const OrderSchema = new mongoose.Schema({
 paymentId: String,
 image: { type: String },
 wholesalerId: String,
@@ -132,7 +132,7 @@ status: { type: String, default: "paid" },
 statusHistory: [{ status: String, time: Number }]
 }, { timestamps: true });
 
-const Order = mongoose.model("Order", orderSchema);
+const Order = mongoose.model("Order", OrderSchema);
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
