@@ -290,17 +290,11 @@ app.post(
     }
   }
 );
-app.post("/api/notifications/saveToken", async (req, res) => {
+
 
 
 // test
-admin.messaging().send({
-  token: "TEST_TOKEN",
-  notification: {
-    title: "Test",
-    body: "Server is working"
-  }
-});
+
 // distance calculation in KM
 const axios = require("axios");
 
