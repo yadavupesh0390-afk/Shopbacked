@@ -158,11 +158,13 @@ const DeliveryProfileSchema = new mongoose.Schema({
 const DeliveryProfile = mongoose.model("DeliveryProfile", DeliveryProfileSchema);
 
 const crypto = require("crypto");
+
 app.post(
   "/api/webhook/razorpay",
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
+      /* ================= VERIFY SIGNATURE ================= */
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
 
@@ -172,72 +174,46 @@ app.post(
         .digest("hex");
 
       if (expected !== signature) {
+        console.log("❌ Invalid Razorpay signature");
         return res.status(400).send("Invalid signature");
       }
 
       const event = JSON.parse(req.body.toString());
-      console.log("✅ Webhook Hit");
-      console.log("EVENT:", event.event);
-      if (event.event === "payment.captured") {
+      console.log("✅ Webhook Hit:", event.event);
 
-        const payment = event.payload.payment.entity;
-        const notes = payment.notes || {};
-        console.log("NOTES:", notes);
-        console.log("WHOLESALER ID:", notes.wholesalerId);
+      if (event.event !== "payment.captured") {
+        return res.json({ success: true });
+      }
 
-  // 🔹 Fetch wholesaler to get FCM token
-        const wholesaler = await User.findById(notes.wholesalerId);
+      /* ================= PAYMENT DATA ================= */
+      const payment = event.payload.payment.entity;
+      const notes = payment.notes || {};
 
-        console.log("FCM TOKEN:", wholesaler?.fcmToken);
-        let order;
+      console.log("NOTES:", notes);
+      console.log("WHOLESALER ID:", notes.wholesalerId);
 
-        /* ================= CART PAYMENT ================= */
-        if (notes.products) {
-          const products = JSON.parse(notes.products);
+      let order;
 
-          for (const p of products) {
-            order = await Order.create({
-              paymentId: payment.id,
-              productId: notes.productId,
-              productName: notes.productName,
-              productImg: notes.productImg || "",
-              price: Number(notes.price),
+      /* ================= CART PAYMENT ================= */
+      if (notes.products) {
+        const products = JSON.parse(notes.products);
 
-              wholesalerId: notes.wholesalerId,
-              wholesalerName: notes.wholesalerName,
-              wholesalerMobile: notes.wholesalerMobile,
-              wholesalerLocation: notes.wholesalerLocation || null,
-
-              retailerName: notes.retailerName,
-              retailerMobile: notes.retailerMobile,
-              retailerLocation: notes.retailerLocation || null,
-
-              vehicleType: notes.vehicleType,
-              deliveryCharge: Number(notes.totalDelivery),
-              retailerDeliveryPay: Number(notes.retailerPays),
-              wholesalerDeliveryPay: Number(notes.wholesalerPays),
-
-              totalAmount: Number(notes.price) + Number(notes.retailerPays),
-              status: "paid",
-              statusHistory: [{ status: "paid", time: Date.now() }]
-            });
-          }
-
-        } 
-        /* ================= DIRECT BUY ================= */
-        else {
+        for (const p of products) {
           order = await Order.create({
             paymentId: payment.id,
-            productId: notes.productId,
-            productName: notes.productName,
-            productImg: notes.productImg || "",
-            price: Number(notes.price),
+
+            productId: p.productId || notes.productId,
+            productName: p.productName || notes.productName,
+            productImg: p.productImg || "",
+
+            price: Number(p.price || notes.price),
 
             wholesalerId: notes.wholesalerId,
             wholesalerName: notes.wholesalerName,
             wholesalerMobile: notes.wholesalerMobile,
             wholesalerLocation: notes.wholesalerLocation || null,
 
+            retailerId: notes.retailerId,
             retailerName: notes.retailerName,
             retailerMobile: notes.retailerMobile,
             retailerLocation: notes.retailerLocation || null,
@@ -247,54 +223,100 @@ app.post(
             retailerDeliveryPay: Number(notes.retailerPays),
             wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-            totalAmount: Number(notes.price) + Number(notes.retailerPays),
+            totalAmount:
+              Number(p.price || notes.price) +
+              Number(notes.retailerPays),
+
             status: "paid",
             statusHistory: [{ status: "paid", time: Date.now() }]
           });
         }
+      }
 
-        // 🔔 SEND PUSH NOTIFICATION (Firebase)
-        if (notes.retailerId) {
-          const user = await User.findById(notes.retailerId);
-          if (user && user.fcmToken) {
-            const message = {
-              token: user.fcmToken,
-              notification: {
-                title: "Payment Successful ✅",
-                body: `Your payment of ₹${notes.price} is successful.`
-              },
-              data: {
-                orderId: order._id.toString()
-              }
-            };
-            admin.messaging().send(message)
-              .then(r => console.log("FCM Notification sent ✅", r))
-              .catch(err => console.error("FCM failed ❌", err));
+      /* ================= DIRECT BUY ================= */
+      else {
+        order = await Order.create({
+          paymentId: payment.id,
+
+          productId: notes.productId,
+          productName: notes.productName,
+          productImg: notes.productImg || "",
+          price: Number(notes.price),
+
+          wholesalerId: notes.wholesalerId,
+          wholesalerName: notes.wholesalerName,
+          wholesalerMobile: notes.wholesalerMobile,
+          wholesalerLocation: notes.wholesalerLocation || null,
+
+          retailerId: notes.retailerId,
+          retailerName: notes.retailerName,
+          retailerMobile: notes.retailerMobile,
+          retailerLocation: notes.retailerLocation || null,
+
+          vehicleType: notes.vehicleType,
+          deliveryCharge: Number(notes.totalDelivery),
+          retailerDeliveryPay: Number(notes.retailerPays),
+          wholesalerDeliveryPay: Number(notes.wholesalerPays),
+
+          totalAmount:
+            Number(notes.price) + Number(notes.retailerPays),
+
+          status: "paid",
+          statusHistory: [{ status: "paid", time: Date.now() }]
+        });
+      }
+
+      /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
+      if (notes.wholesalerId) {
+        const wholesaler = await User.findById(notes.wholesalerId);
+
+        console.log("WHOLESALER FCM:", wholesaler?.fcmToken);
+
+        if (wholesaler && wholesaler.fcmToken) {
+          const message = {
+            token: wholesaler.fcmToken,
+            notification: {
+              title: "New Order Received 🛒",
+              body: `₹${notes.price} ka naya order mila hai`
+            },
+            data: {
+              orderId: order._id.toString(),
+              paymentId: payment.id
+            }
+          };
+
+          try {
+            await admin.messaging().send(message);
+            console.log("✅ Wholesaler push notification sent");
+          } catch (err) {
+            console.error("❌ FCM error:", err);
           }
+        } else {
+          console.log("❌ Wholesaler FCM token missing");
         }
+      }
 
-        // 🔹 SEND SMS via Twilio
-        if (notes.retailerMobile) {
-          const toNumber = notes.retailerMobile.startsWith("+")
-            ? notes.retailerMobile
-            : "+91" + notes.retailerMobile;
+      /* ================= SMS (RETAILER) ================= */
+      if (notes.retailerMobile) {
+        const toNumber = notes.retailerMobile.startsWith("+")
+          ? notes.retailerMobile
+          : "+91" + notes.retailerMobile;
 
-          client.messages.create({
-            body: `Payment of ₹${notes.price} successful. Order ID: ${order._id}`,
+        client.messages
+          .create({
+            body: `Payment successful ₹${notes.price}. Order ID: ${order._id}`,
             from: process.env.TWILIO_NUMBER,
             to: toNumber
           })
-          .then(msg => console.log("SMS sent ✅", msg.sid))
-          .catch(err => console.error("SMS failed ❌", err));
-        }
-
+          .then(msg => console.log("✅ SMS sent:", msg.sid))
+          .catch(err => console.error("❌ SMS failed:", err));
       }
 
-      // ✅ SUCCESS RESPONSE
+      /* ================= FINAL RESPONSE ================= */
       res.json({ success: true });
 
     } catch (err) {
-      console.error("Webhook error:", err);
+      console.error("❌ Webhook error:", err);
       res.status(500).send("Webhook error");
     }
   }
