@@ -14,16 +14,12 @@ app.use(cors());
 
 
 /* ================= ROUTES ================= */
-const orderRoutes = require("./order");
 const notificationRoutes = require("./routes/notifications");
 const paymentRoutes = require("./routes/payments");
-const admin = require("./firebaseAdmin");
 
 /* ================= USE ROUTES ================= */
-
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/payments", paymentRoutes);
-
 
 const twilio = require("twilio");
 
