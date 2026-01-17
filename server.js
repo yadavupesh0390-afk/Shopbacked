@@ -9,7 +9,8 @@ const TEN_MIN = 10 * 60 * 1000;
 const app = express();
 app.use(cors());
 const orderRoutes = require("./order");
-import notificationRoutes from "./notifications.js";
+const notificationRoutes = require("./notifications");
+const admin = require("./firebaseAdmin");
 app.use("/api/notifications", notificationRoutes);
 
 app.use("/api", orderRoutes);
@@ -322,7 +323,7 @@ app.post("/api/notifications/saveToken", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
-import admin from "./firebaseAdmin.js";
+
 
 // test
 admin.messaging().send({
