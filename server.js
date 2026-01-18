@@ -129,7 +129,7 @@ statusHistory: [{ status: String, time: Number }]
 const Order = mongoose.model("Order", orderSchema);
 
 // Agar alag file me nahi rakhna, server.js me bhi define kar sakte ho
-const mongoose = require("mongoose");
+
 
 const wholesalerSchema = new mongoose.Schema({
   shopName: String,
