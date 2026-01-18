@@ -275,34 +275,35 @@ app.post(
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
-        const wholesaler = await User.findById(notes.wholesalerId);
 
-        console.log("WHOLESALER FCM:", wholesaler?.fcmToken);
+  const wholesaler = await Wholesaler.findById(notes.wholesalerId);
 
-        if (wholesaler && wholesaler.fcmToken) {
-          const message = {
-            token: wholesaler.fcmToken,
-            notification: {
-              title: "New Order Received 🛒",
-              body: `₹${notes.price} ka naya order mila hai`
-            },
-            data: {
-              orderId: order._id.toString(),
-              paymentId: payment.id
-            }
-          };
+  console.log("WHOLESALER FCM:", wholesaler?.fcmToken);
 
-          try {
-            await admin.messaging().send(message);
-            console.log("✅ Wholesaler push notification sent");
-          } catch (err) {
-            console.error("❌ FCM error:", err);
-          }
-        } else {
-          console.log("❌ Wholesaler FCM token missing");
-        }
-      }
+  if (!wholesaler?.fcmToken) {
+    console.log("❌ Wholesaler FCM token missing");
+    return; // FCM token nahi hai to notification send mat karo
+  }
 
+  const message = {
+    token: wholesaler.fcmToken,
+    notification: {
+      title: "New Order Received 🛒",
+      body: `₹${notes.price} ka naya order mila hai`
+    },
+    data: {
+      orderId: order._id.toString(),
+      paymentId: payment.id
+    }
+  };
+
+  try {
+    await admin.messaging().send(message);
+    console.log("✅ Wholesaler push notification sent");
+  } catch (err) {
+    console.error("❌ FCM error:", err);
+  }
+}
       /* ================= SMS (RETAILER) ================= */
       if (notes.retailerMobile) {
         const toNumber = notes.retailerMobile.startsWith("+")
