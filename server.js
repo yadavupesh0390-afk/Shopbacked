@@ -14,7 +14,7 @@ const TEN_MIN = 10 * 60 * 1000;
 
 
 /* ================= ROUTES ================= */
-//const notificationRoutes = require("./routes/notifications");
+const notificationRoutes = require("./routes/notifications");
 
 /* ================= USE ROUTES ================= */
 //app.use("/api/notifications", notificationRoutes);
