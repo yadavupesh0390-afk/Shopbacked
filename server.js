@@ -12,7 +12,12 @@ app.use(cors());
 /* ================= MIDDLEWARE ================= */
 
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json");
 
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 
 const twilio = require("twilio");
@@ -484,6 +489,32 @@ const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {e
 res.json({success:true, token, userId:user._id});
 
 });
+
+
+
+app.post("/api/notifications/saveToken", async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
+
+    if (!userId || !fcmToken) {
+      return res.json({ success:false, message:"Missing data" });
+    }
+
+    await User.findByIdAndUpdate(userId, { fcmToken });
+
+    res.json({ success:true });
+
+  } catch (err) {
+    console.error("Save FCM error:", err);
+    res.status(500).json({ success:false });
+  }
+});
+
+
+
+
+
+
 
 
 app.post("/api/delivery/calculate", async (req, res) => {
