@@ -13,11 +13,6 @@ const TEN_MIN = 10 * 60 * 1000;
 //app.use(cors());
 
 
-/* ================= ROUTES ================= */
-const notificationRoutes = require("./routes/notifications");
-
-/* ================= USE ROUTES ================= */
-//app.use("/api/notifications", notificationRoutes);
 
 
 const twilio = require("twilio");
