@@ -491,18 +491,26 @@ res.status(500).json({ success:false });
 }
 });
 
-app.post("/api/login", async (req,res)=>{
-const { mobile, password, role } = req.body;
-const user = await User.findOne({mobile, role});
-if(!user) return res.json({success:false});
+app.post("/api/login", async (req, res) => {
+  const { mobile, password, role, fcmToken } = req.body; // fcmToken bhi send karo login me
+  const user = await User.findOne({ mobile, role });
+  if (!user) return res.json({ success: false });
 
-const ok = await bcrypt.compare(password, user.password);
-if(!ok) return res.json({success:false});
+  const ok = await bcrypt.compare(password, user.password);
+  if (!ok) return res.json({ success: false });
 
-const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
+  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-res.json({success:true, token, userId:user._id});
+  console.log("Login userId:", user._id);
+  console.log("FCM Token received at login:", fcmToken);
 
+  // Agar FCM token bhi login me mil raha hai, turant save kar do
+  if (fcmToken && role === "wholesaler") {
+    await Wholesaler.findByIdAndUpdate(user._id, { fcmToken }, { new: true });
+    console.log("✅ FCM token saved to DB for wholesaler:", user._id);
+  }
+
+  res.json({ success: true, token, userId: user._id });
 });
 
 
