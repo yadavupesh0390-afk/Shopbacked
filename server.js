@@ -59,7 +59,7 @@ vehicle_model: String,
 vehicle_number: String
 }, { timestamps: true });
 
-
+const User = mongoose.model("User", userSchema);
 
 /* ================= PRODUCT ================= */
 const productSchema = new mongoose.Schema({
