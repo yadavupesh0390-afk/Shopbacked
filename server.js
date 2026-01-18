@@ -8,9 +8,9 @@ const Razorpay = require("razorpay");
 
 const app = express();
 const TEN_MIN = 10 * 60 * 1000;
-
-/* ================= MIDDLEWARE ================= */
 app.use(cors());
+/* ================= MIDDLEWARE ================= */
+
 
 
 
