@@ -17,7 +17,7 @@ const TEN_MIN = 10 * 60 * 1000;
 const notificationRoutes = require("./routes/notifications");
 
 /* ================= USE ROUTES ================= */
-app.use("/api/notifications", notificationRoutes);
+//app.use("/api/notifications", notificationRoutes);
 
 
 const twilio = require("twilio");
