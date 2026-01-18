@@ -474,6 +474,21 @@ res.status(500).json({ success:false });
 }
 });
 
+app.post("/api/login", async (req,res)=>{
+const { mobile, password, role } = req.body;
+const user = await User.findOne({mobile, role});
+if(!user) return res.json({success:false});
+
+const ok = await bcrypt.compare(password, user.password);
+if(!ok) return res.json({success:false});
+
+const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
+
+res.json({success:true, token, userId:user._id});
+
+});
+
+
 app.post("/api/delivery/calculate", async (req, res) => {
   try {
     const {
@@ -585,19 +600,7 @@ const categorySchema = new mongoose.Schema({
 const Category = mongoose.model("Category", categorySchema);
 
 
-app.post("/api/login", async (req,res)=>{
-const { mobile, password, role } = req.body;
-const user = await User.findOne({mobile, role});
-if(!user) return res.json({success:false});
 
-const ok = await bcrypt.compare(password, user.password);
-if(!ok) return res.json({success:false});
-
-const token = jwt.sign({id:user._id, role:user.role}, process.env.JWT_SECRET, {expiresIn:"7d"});
-
-res.json({success:true, token, userId:user._id});
-
-});
 
 /* ================= PRODUCTS ================= */
 /* ================= PRODUCTS ================= */
