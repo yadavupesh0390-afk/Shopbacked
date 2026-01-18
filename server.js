@@ -128,7 +128,21 @@ statusHistory: [{ status: String, time: Number }]
 
 const Order = mongoose.model("Order", orderSchema);
 
+// Agar alag file me nahi rakhna, server.js me bhi define kar sakte ho
+const mongoose = require("mongoose");
 
+const wholesalerSchema = new mongoose.Schema({
+  shopName: String,
+  mobile: String,
+  address: String,
+  location: {
+    lat: Number,
+    lng: Number
+  },
+  fcmToken: { type: String, default: null } // 🔑 FCM token
+}, { timestamps: true });
+
+const Wholesaler = mongoose.model("Wholesaler", wholesalerSchema);
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
