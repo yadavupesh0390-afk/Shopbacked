@@ -10,7 +10,7 @@ const app = express();
 const TEN_MIN = 10 * 60 * 1000;
 
 /* ================= MIDDLEWARE ================= */
-//app.use(cors());
+app.use(cors());
 
 
 
