@@ -15,11 +15,10 @@ app.use(cors());
 
 /* ================= ROUTES ================= */
 const notificationRoutes = require("./routes/notifications");
-const paymentRoutes = require("./routes/payments");
 
 /* ================= USE ROUTES ================= */
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/payments", paymentRoutes);
+
 
 const twilio = require("twilio");
 
