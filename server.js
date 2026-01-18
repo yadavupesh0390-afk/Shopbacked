@@ -359,7 +359,7 @@ function calculateDeliveryCharge({
   // ================= VEHICLE RATES =================
   let perKm = 0;
   let perMin = 0;
-  const otherCharge = 0;
+  const otherCharge = 1;
 
   if (vehicleType === "two_wheeler") {
     perKm = 2;
