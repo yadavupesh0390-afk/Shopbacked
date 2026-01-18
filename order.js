@@ -2,7 +2,7 @@ const express = require("express");
 
 // order.js के अंदर
 const admin = require("./firebaseAdmin");
-const orderRoutes = require("./order");
+
 
 // 🔔 Order PAID → Notification
 router.post("/orders/:orderId/paid", async (req, res) => {
