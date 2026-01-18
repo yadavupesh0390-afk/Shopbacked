@@ -508,16 +508,17 @@ res.json({success:true, token, userId:user._id});
 
 app.post("/api/notifications/saveToken", async (req, res) => {
   try {
-    const { userId, fcmToken, role } = req.body;
+    const { userId, role, fcmToken } = req.body;
 
     if (!userId || !fcmToken) {
       return res.json({ success: false, message: "Missing data" });
     }
 
+    // ✅ Wholesaler ke liye
     if (role === "wholesaler") {
       await Wholesaler.findByIdAndUpdate(
         userId,
-        { fcmToken: fcmToken },
+        { fcmToken },
         { new: true }
       );
     }
