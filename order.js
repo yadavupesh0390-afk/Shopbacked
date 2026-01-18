@@ -1,17 +1,15 @@
 const express = require("express");
+const router = express.Router();   // ⭐ MOST IMPORTANT
 
-// order.js के अंदर
 const admin = require("./firebaseAdmin");
-
+const Order = require("./Order"); // 👈 model ka correct path
 
 // 🔔 Order PAID → Notification
 router.post("/orders/:orderId/paid", async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    const order = await Order.findById(orderId)
-      .populate("deliveryBoy")
-      .populate("wholesaler");
+    const order = await Order.findById(orderId);
 
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
@@ -24,18 +22,18 @@ router.post("/orders/:orderId/paid", async (req, res) => {
       }
     };
 
-    // 🚚 Delivery Boy Notification
-    if (order.deliveryBoy?.fcmToken) {
+    // 🚚 Delivery Boy
+    if (order.deliveryBoyFcmToken) {
       await admin.messaging().sendToDevice(
-        order.deliveryBoy.fcmToken,
+        order.deliveryBoyFcmToken,
         payload
       );
     }
 
-    // 🏪 Wholesaler Notification
-    if (order.wholesaler?.fcmToken) {
+    // 🏪 Wholesaler
+    if (order.wholesalerFcmToken) {
       await admin.messaging().sendToDevice(
-        order.wholesaler.fcmToken,
+        order.wholesalerFcmToken,
         payload
       );
     }
@@ -48,4 +46,4 @@ router.post("/orders/:orderId/paid", async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;   // ⭐ MOST IMPORTANT
