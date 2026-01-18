@@ -10,14 +10,14 @@ const app = express();
 const TEN_MIN = 10 * 60 * 1000;
 
 /* ================= MIDDLEWARE ================= */
-app.use(cors());
+//app.use(cors());
 
 
 /* ================= ROUTES ================= */
-const notificationRoutes = require("./routes/notifications");
+//const notificationRoutes = require("./routes/notifications");
 
 /* ================= USE ROUTES ================= */
-app.use("/api/notifications", notificationRoutes);
+//app.use("/api/notifications", notificationRoutes);
 
 
 const twilio = require("twilio");
