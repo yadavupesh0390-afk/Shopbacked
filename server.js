@@ -317,11 +317,13 @@ app.post(
   }
 );
 
+
+axios = require("axios");
 app.use(express.json({ limit: "10mb" }));
 
 
 // distance calculation in KM
-const axios = require("axios");
+  
 
 async function getRoadDistanceTime(from, to) {
   const url = `https://router.project-osrm.org/route/v1/driving/` +
