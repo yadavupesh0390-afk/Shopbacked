@@ -513,19 +513,19 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/notifications/saveToken", async (req, res) => {
   try {
-    const { userId, role, fcmToken } = req.body;
+    const { userId, fcmToken } = req.body;
 
     if (!userId || !fcmToken) {
       return res.json({ success: false, message: "Missing data" });
     }
 
-    // ✅ Wholesaler ke liye
     await User.findByIdAndUpdate(
-  userId,
-  { fcmToken },
-  { new: true }
-);
-    }
+      userId,
+      { fcmToken },
+      { new: true }
+    );
+
+    console.log("✅ FCM token saved for user:", userId);
 
     res.json({ success: true });
 
