@@ -516,8 +516,7 @@ app.post("/api/notifications/saveToken", async (req, res) => {
     }
 
     // ✅ Wholesaler ke liye
-    if (role === "wholesaler") {
-      await User.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
   userId,
   { fcmToken },
   { new: true }
