@@ -512,24 +512,52 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/notifications/saveToken", async (req, res) => {
   try {
-    const { userId, fcmToken } = req.body;
+    const { userId, role, fcmToken } = req.body;
 
-    if (!userId || !fcmToken) {
-      return res.json({ success: false, message: "Missing data" });
+    // 🔴 Basic validation
+    if (!userId || !role || !fcmToken) {
+      console.log("❌ Missing data:", { userId, role, fcmToken });
+      return res.status(400).json({
+        success: false,
+        message: "userId, role or fcmToken missing"
+      });
     }
 
-    await User.findByIdAndUpdate(
-      userId,
-      { fcmToken },
-      { new: true }
-    );
+    let updatedUser = null;
 
-    console.log("✅ FCM token saved for user:", userId);
+    // 🧠 Role based collection
+    if (role === "wholesaler") {
+      updatedUser = await Wholesaler.findByIdAndUpdate(
+        userId,
+        { fcmToken },
+        { new: true }
+      );
+    } else if (role === "retailer" || role === "delivery" || role === "admin") {
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { fcmToken },
+        { new: true }
+      );
+    }
+
+    if (!updatedUser) {
+      console.log("❌ User not found:", userId, role);
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // ✅ SUCCESS LOG
+    console.log("🔥 FCM TOKEN SAVED");
+    console.log("UserId:", userId);
+    console.log("Role:", role);
+    console.log("Token:", fcmToken.substring(0, 20) + "...");
 
     res.json({ success: true });
 
   } catch (err) {
-    console.error("Save FCM error:", err);
+    console.error("❌ Save FCM error:", err);
     res.status(500).json({ success: false });
   }
 });
