@@ -131,18 +131,6 @@ const Order = mongoose.model("Order", orderSchema);
 // Agar alag file me nahi rakhna, server.js me bhi define kar sakte ho
 
 
-const wholesalerSchema = new mongoose.Schema({
-  shopName: String,
-  mobile: String,
-  address: String,
-  location: {
-    lat: Number,
-    lng: Number
-  },
-  fcmToken: { type: String, default: null } // 🔑 FCM token
-}, { timestamps: true });
-
-const Wholesaler = mongoose.model("Wholesaler", wholesalerSchema);
 
 
 const DeliveryProfileSchema = new mongoose.Schema({
@@ -505,10 +493,14 @@ app.post("/api/login", async (req, res) => {
   console.log("FCM Token received at login:", fcmToken);
 
   // Agar FCM token bhi login me mil raha hai, turant save kar do
-  if (fcmToken && role === "wholesaler") {
-    await Wholesaler.findByIdAndUpdate(user._id, { fcmToken }, { new: true });
-    console.log("✅ FCM token saved to DB for wholesaler:", user._id);
-  }
+  if (fcmToken) {
+  await User.findByIdAndUpdate(
+    user._id,
+    { fcmToken },
+    { new: true }
+  );
+  console.log("✅ FCM token saved in User collection");
+}
 
   res.json({ success: true, token, userId: user._id });
 });
