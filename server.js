@@ -494,8 +494,7 @@ app.post("/api/login", async (req, res) => {
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
   console.log("Login userId:", user._id);
-  console.log("FCM Token received at login:", fcmToken);
-
+  
   // Agar FCM token bhi login me mil raha hai, turant save kar do
   if (fcmToken) {
   await User.findByIdAndUpdate(
