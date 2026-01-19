@@ -1,12 +1,18 @@
-const admin = require('firebase-admin');
-const path = require('path');
+// firebaseAdmin.js
+const admin = require("firebase-admin");
 
-// JSON key ka path (server root me hai)
-const serviceAccount = require(path.resolve(__dirname, 'serviceAccountKey.json'));
+// ENV variable me JSON string ke roop me service account rakha hai
+// Isliye parse karna zaruri hai
+if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  throw new Error("❌ FIREBASE_SERVICE_ACCOUNT environment variable missing!");
+}
 
-// Firebase Admin initialize
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+console.log("✅ Firebase Admin initialized successfully");
 
 module.exports = admin;
