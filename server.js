@@ -278,8 +278,8 @@ app.post(
   const message = {
     token: wholesalerUser.fcmToken,
     notification: {
-      title: "BazaarSathi",
-      body: `₹${notes.price} ka naya order mila hai`
+      title: "📥 BazaarSathi",
+      body: `₹${notes.price} का नया आर्डर मिला है `
     },
     data: {
       orderId: order._id.toString(),
