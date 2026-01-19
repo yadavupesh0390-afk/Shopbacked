@@ -14,7 +14,9 @@ app.use(cors());
 
 const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
-
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 
 
@@ -325,9 +327,7 @@ app.post(
 
 const axios = require("axios");
 app.use(express.json({ limit: "10mb" }));
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+
 
 // distance calculation in KM
   
