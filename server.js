@@ -262,35 +262,55 @@ app.post(
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
 
-  // 🔥 Always get FCM token from USER collection
   const wholesalerUser = await User.findById(notes.wholesalerId);
 
   console.log("WHOLESALER USER ID:", notes.wholesalerId);
   console.log("WHOLESALER FCM:", wholesalerUser?.fcmToken);
 
-  // ❌ Token missing → stop
   if (!wholesalerUser?.fcmToken) {
-    console.log("❌ Wholesaler FCM token missing in User collection");
+    console.log("❌ Wholesaler FCM token missing");
     return;
   }
 
-  // 🔔 Push notification payload
   const message = {
     token: wholesalerUser.fcmToken,
+
     notification: {
-      title: "📥 BazaarSathi",
-      body: `₹${notes.price} का नया आर्डर मिला है `
+      title: "🛒 Bazaar Sathi",
+      body: `₹${notes.price} का नया ऑर्डर मिला है`
     },
+
+    // 🔥 CLICK ACTION (Dashboard open)
+    webpush: {
+      fcmOptions: {
+        link: "https://bazaarsathi.vercel.app/wholesaler/dashboard"
+      }
+    },
+
     data: {
       orderId: order._id.toString(),
-      paymentId: payment.id
+      paymentId: payment.id,
+      click_action: "OPEN_DASHBOARD"
     }
   };
 
-  // 🚀 Send notification
-  await admin.messaging().send(message);
+  try {
+    await admin.messaging().send(message);
+    console.log("✅ FCM notification sent to wholesaler");
+  } catch (err) {
+    console.error("❌ FCM send error:", err.code);
 
-  console.log("✅ FCM notification sent to wholesaler");
+    // 🚮 Invalid token → remove from DB
+    if (
+      err.code === "messaging/registration-token-not-registered" ||
+      err.code === "messaging/invalid-registration-token"
+    ) {
+      await User.findByIdAndUpdate(notes.wholesalerId, {
+        $unset: { fcmToken: "" }
+      });
+      console.log("🗑️ Invalid FCM token removed");
+    }
+  }
 }
 
   
