@@ -316,7 +316,66 @@ app.post(
   }
 }
 
-  
+// 🔔 DELIVERY BOY NOTIFICATION
+if (notes.deliveryBoyId) {
+
+  const deliveryUser = await User.findById(notes.deliveryBoyId);
+
+  console.log("DELIVERY BOY USER ID:", notes.deliveryBoyId);
+  console.log("DELIVERY BOY FCM:", deliveryUser?.fcmToken);
+
+  if (!deliveryUser?.fcmToken) {
+    console.log("❌ No Delivery Boy FCM token found");
+    return;
+  }
+
+  const message = {
+    token: deliveryUser.fcmToken,
+
+    notification: {
+      title: "🚚 BazaarSathi",
+      body: `आपको एक नया डिलीवरी ऑर्डर मिला है`
+    },
+
+    // ✅ CLICK → OPEN DELIVERY DASHBOARD
+    webpush: {
+      fcmOptions: {
+        link: "https://bazaarsathi.vercel.app/delivery.html"
+      }
+    },
+
+    data: {
+      orderId: order._id.toString(),
+      paymentId: payment.id,
+      role: "delivery"
+    }
+  };
+
+  try {
+    await admin.messaging().send(message);
+    console.log("✅ Delivery Boy Notification sent");
+
+  } catch (err) {
+
+    console.error("❌ DELIVERY FCM ERROR:", err.code);
+
+    // 🚮 INVALID TOKEN → REMOVE FROM DB
+    if (
+      err.code === "messaging/registration-token-not-registered" ||
+      err.code === "messaging/invalid-registration-token" ||
+      err.code === "messaging/unknown-error"
+    ) {
+      await User.findByIdAndUpdate(notes.deliveryBoyId, {
+        $unset: { fcmToken: "" }
+      });
+
+      console.log("🗑️ Invalid Delivery Boy FCM token removed");
+    }
+  }
+}
+
+
+      
       /* ================= SMS (RETAILER) ================= */
       if (notes.retailerMobile) {
         const toNumber = notes.retailerMobile.startsWith("+")
