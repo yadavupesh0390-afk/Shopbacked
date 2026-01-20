@@ -283,7 +283,7 @@ app.post(
     // ✅ CLICK OPEN DASHBOARD
     webpush: {
       fcmOptions: {
-        link: "https://bazaarsathi.vercel.app/wholesaler/dashboard"
+        link: "https://bazaarsathi.vercel.app/wholesaler.html"
       }
     },
 
