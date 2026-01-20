@@ -262,58 +262,35 @@ app.post(
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
 
-  const wholesalerUser = await User.findById(notes.wholesalerId);
+// 🔥 Always get FCM token from USER collection
+const wholesalerUser = await User.findById(notes.wholesalerId);
 
-  console.log("WHOLESALER USER ID:", notes.wholesalerId);
-  console.log("WHOLESALER FCM:", wholesalerUser?.fcmToken);
+console.log("WHOLESALER USER ID:", notes.wholesalerId);
+console.log("WHOLESALER FCM:", wholesalerUser?.fcmToken);
 
-  if (!wholesalerUser?.fcmToken) {
-    console.log("❌ No FCM token found");
-    return;
-  }
+// ❌ Token missing → stop
+if (!wholesalerUser?.fcmToken) {
+console.log("❌ Wholesaler FCM token missing in User collection");
+return;
+}
 
-  const message = {
-    token: wholesalerUser.fcmToken,
+// 🔔 Push notification payload
+const message = {
+token: wholesalerUser.fcmToken,
+notification: {
+title: "📥 BazaarSathi",
+body: ₹${notes.price} का नया आर्डर मिला है 
+},
+data: {
+orderId: order._id.toString(),
+paymentId: payment.id
+}
+};
 
-    notification: {
-      title: "🛒 Bazaar Sathi",
-      body: `₹${notes.price} का नया ऑर्डर मिला है`
-    },
+// 🚀 Send notification
+await admin.messaging().send(message);
 
-    // ✅ CLICK OPEN DASHBOARD
-    webpush: {
-      fcmOptions: {
-        link: "https://bazaarsathi.vercel.app/wholesaler/dashboard"
-      }
-    },
-
-    data: {
-      orderId: order._id.toString(),
-      paymentId: payment.id
-    }
-  };
-
-  try {
-    await admin.messaging().send(message);
-    console.log("✅ Notification sent");
-
-  } catch (err) {
-
-    console.error("❌ FCM ERROR:", err.code);
-
-    // 🚮 INVALID TOKEN → REMOVE FROM DB
-    if (
-      err.code === "messaging/registration-token-not-registered" ||
-      err.code === "messaging/invalid-registration-token" ||
-      err.code === "messaging/unknown-error"
-    ) {
-      await User.findByIdAndUpdate(notes.wholesalerId, {
-        $unset: { fcmToken: "" }
-      });
-
-      console.log("🗑️ Invalid FCM token removed from DB");
-    }
-  }
+console.log("✅ FCM notification sent to wholesaler");
 }
 
   
