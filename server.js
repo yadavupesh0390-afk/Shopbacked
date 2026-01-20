@@ -276,7 +276,7 @@ app.post(
     token: wholesalerUser.fcmToken,
 
     notification: {
-      title: "🛒 Bazaar Sathi",
+      title: "📥 BazaarSathi",
       body: `₹${notes.price} का नया ऑर्डर मिला है`
     },
 
