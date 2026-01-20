@@ -260,117 +260,82 @@ app.post(
       }
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
-      if (notes.wholesalerId) {
+      /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
+if (notes.wholesalerId) {
 
   const wholesalerUser = await User.findById(notes.wholesalerId);
 
-  console.log("WHOLESALER USER ID:", notes.wholesalerId);
   console.log("WHOLESALER FCM:", wholesalerUser?.fcmToken);
 
-  if (!wholesalerUser?.fcmToken) {
-    console.log("❌ No FCM token found");
-    //return;
-  }
+  if (wholesalerUser?.fcmToken) {
 
-  const message = {
-    token: wholesalerUser.fcmToken,
-
-    notification: {
-      title: "📥 BazaarSathi",
-      body: `₹${notes.price} का नया ऑर्डर मिला है`
-    },
-
-    // ✅ CLICK OPEN DASHBOARD
-    webpush: {
-      fcmOptions: {
-        link: "https://bazaarsathi.vercel.app/wholesaler.html"
+    const message = {
+      token: wholesalerUser.fcmToken,
+      notification: {
+        title: "📥 BazaarSathi",
+        body: `₹${notes.price} का नया ऑर्डर मिला है`
+      },
+      webpush: {
+        fcmOptions: {
+          link: "https://bazaarsathi.vercel.app/wholesaler.html"
+        }
+      },
+      data: {
+        orderId: order._id.toString(),
+        paymentId: payment.id
       }
-    },
+    };
 
-    data: {
-      orderId: order._id.toString(),
-      paymentId: payment.id
+    try {
+      await admin.messaging().send(message);
+      console.log("✅ Wholesaler notification sent");
+    } catch (err) {
+      console.error("❌ WHOLESALER FCM ERROR:", err.code);
     }
-  };
 
-  try {
-    await admin.messaging().send(message);
-    console.log("✅ Notification sent");
-
-  } catch (err) {
-
-    console.error("❌ FCM ERROR:", err.code);
-
-    // 🚮 INVALID TOKEN → REMOVE FROM DB
-    if (
-      err.code === "messaging/registration-token-not-registered" ||
-      err.code === "messaging/invalid-registration-token" ||
-      err.code === "messaging/unknown-error"
-    ) {
-      await User.findByIdAndUpdate(notes.wholesalerId, {
-        $unset: { fcmToken: "" }
-      });
-
-      console.log("🗑️ Invalid FCM token removed from DB");
-    }
+  } else {
+    console.log("⚠️ Wholesaler FCM missing, skipping");
   }
 }
 
 // 🔔 DELIVERY BOY NOTIFICATION
+/* ================= PUSH NOTIFICATION (DELIVERY BOY) ================= */
 if (notes.deliveryBoyId) {
 
   const deliveryUser = await User.findById(notes.deliveryBoyId);
 
-  console.log("DELIVERY BOY USER ID:", notes.deliveryBoyId);
-  console.log("DELIVERY BOY FCM:", deliveryUser?.fcmToken);
+  console.log("DELIVERY FCM:", deliveryUser?.fcmToken);
 
-  if (!deliveryUser?.fcmToken) {
-    console.log("❌ No Delivery Boy FCM token found");
-    //return;
-  }
+  if (deliveryUser?.fcmToken) {
 
-  const message = {
-    token: deliveryUser.fcmToken,
-
-    notification: {
-      title: "🚚 BazaarSathi",
-      body: `आपको एक नया डिलीवरी ऑर्डर मिला है`
-    },
-
-    // ✅ CLICK → OPEN DELIVERY DASHBOARD
-    webpush: {
-      fcmOptions: {
-        link: "https://bazaarsathi.vercel.app/delivery.html"
+    const message = {
+      token: deliveryUser.fcmToken,
+      notification: {
+        title: "🚚 BazaarSathi",
+        body: "आपको नया डिलीवरी ऑर्डर मिला है"
+      },
+      webpush: {
+        headers: { Urgency: "high" },
+        fcmOptions: {
+          link: "https://bazaarsathi.vercel.app/delivery.html"
+        }
+      },
+      data: {
+        orderId: order._id.toString(),
+        paymentId: payment.id,
+        role: "delivery"
       }
-    },
+    };
 
-    data: {
-      orderId: order._id.toString(),
-      paymentId: payment.id,
-      role: "delivery"
+    try {
+      await admin.messaging().send(message);
+      console.log("✅ Delivery notification sent");
+    } catch (err) {
+      console.error("❌ DELIVERY FCM ERROR:", err.code);
     }
-  };
 
-  try {
-    await admin.messaging().send(message);
-    console.log("✅ Delivery Boy Notification sent");
-
-  } catch (err) {
-
-    console.error("❌ DELIVERY FCM ERROR:", err.code);
-
-    // 🚮 INVALID TOKEN → REMOVE FROM DB
-    if (
-      err.code === "messaging/registration-token-not-registered" ||
-      err.code === "messaging/invalid-registration-token" ||
-      err.code === "messaging/unknown-error"
-    ) {
-      await User.findByIdAndUpdate(notes.deliveryBoyId, {
-        $unset: { fcmToken: "" }
-      });
-
-      console.log("🗑️ Invalid Delivery Boy FCM token removed");
-    }
+  } else {
+    console.log("⚠️ Delivery FCM missing, skipping");
   }
 }
 
