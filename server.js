@@ -269,7 +269,7 @@ app.post(
 
   if (!wholesalerUser?.fcmToken) {
     console.log("❌ No FCM token found");
-    return;
+    //return;
   }
 
   const message = {
@@ -326,7 +326,7 @@ if (notes.deliveryBoyId) {
 
   if (!deliveryUser?.fcmToken) {
     console.log("❌ No Delivery Boy FCM token found");
-    return;
+    //return;
   }
 
   const message = {
