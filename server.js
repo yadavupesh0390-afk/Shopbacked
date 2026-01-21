@@ -1005,36 +1005,49 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
 
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
-try{
-  const { deliveryBoyId } = req.body;
+  try {
+    const { deliveryBoyId } = req.body;
 
-  const profile = await DeliveryProfile.findOne({ deliveryBoyId });
-
-  if(!profile){
-    return res.json({ success:false, message:"Delivery profile not found" });
-  }
-
-  await Order.findByIdAndUpdate(req.params.id,{
-    deliveryBoyId,
-    deliveryBoyName: profile.name,
-    deliveryBoyMobile: profile.mobile,
-    status:"delivery_accepted",
-    $push:{
-      statusHistory:{
-        status:"delivery_accepted",
-        time:Date.now()
-      }
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.json({ success:false, message:"Order not found" });
     }
-  });
 
-  res.json({ success:true });
+    const profile = await DeliveryProfile.findOne({ deliveryBoyId });
+    if (!profile || !profile.location) {
+      return res.json({ success:false, message:"Location required" });
+    }
 
-}catch(err){
-  console.error(err);
-  res.status(500).json({ success:false });
-}
+    const nearby = await isWithin20Km(
+      profile.location,
+      order.wholesalerLocation
+    );
+
+    if (!nearby) {
+      return res.json({
+        success:false,
+        message:"Order is outside 20 KM range"
+      });
+    }
+
+    order.deliveryBoyId = deliveryBoyId;
+    order.deliveryBoyName = profile.name;
+    order.deliveryBoyMobile = profile.mobile;
+    order.status = "delivery_accepted";
+    order.statusHistory.push({
+      status:"delivery_accepted",
+      time:Date.now()
+    });
+
+    await order.save();
+
+    res.json({ success:true });
+
+  } catch(err){
+    console.error(err);
+    res.status(500).json({ success:false });
+  }
 });
-
 
 app.post("/api/orders/generate-delivery-code/:orderId", async (req,res)=>{
   try {
