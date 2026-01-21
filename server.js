@@ -1428,38 +1428,70 @@ res.json({ success:true, orders });
 });
 
 /* ===== DELIVERY BOY ===== */
-app.get("/api/orders/delivery/:id", async (req,res)=>{
-  const boy = await DeliveryProfile.findOne({
-    deliveryBoyId: req.params.id
-  });
+app.get("/api/orders/delivery/:id", async (req, res) => {
+  try {
+    const now = Date.now();
 
-  if (!boy || !boy.location) {
-    return res.json({ success:true, orders:[] });
+    const boy = await DeliveryProfile.findOne({
+      deliveryBoyId: req.params.id
+    });
+
+    if (!boy || !boy.location) {
+      return res.json({ success: true, orders: [] });
+    }
+
+    const orders = await Order.find({
+      $or: [
+        // ✅ Orders assigned to this delivery boy
+        { deliveryBoyId: req.params.id },
+
+        // ✅ Unassigned PAID orders only
+        {
+          deliveryBoyId: { $exists: false },
+          status: "paid"
+        }
+      ],
+      $or: [
+        { status: { $ne: "delivered" } },
+        {
+          status: "delivered",
+          statusHistory: {
+            $elemMatch: {
+              status: "delivered",
+              time: { $gte: now - TEN_MIN }
+            }
+          }
+        }
+      ]
+    }).sort({ createdAt: -1 });
+
+    const filtered = [];
+
+    for (const o of orders) {
+
+      // 🔹 Assigned order → always show
+      if (o.deliveryBoyId === req.params.id) {
+        filtered.push(o);
+        continue;
+      }
+
+      // 🔹 Only PAID + distance check
+      if (
+        o.status === "paid" &&
+        o.wholesalerLocation?.lat &&
+        o.wholesalerLocation?.lng &&
+        isWithin20Km(boy.location, o.wholesalerLocation)
+      ) {
+        filtered.push(o);
+      }
+    }
+
+    res.json({ success: true, orders: filtered });
+
+  } catch (err) {
+    console.error("Delivery orders error:", err);
+    res.status(500).json({ success: false });
   }
-
-  const allOrders = await Order.find({
-    status: { $in: [
-      "paid",
-      "delivery_accepted",
-      "picked_up",
-      "delivery_code_generated"
-    ]}
-  }).sort({ createdAt:-1 });
-
-  const filtered = [];
-
-  for (const o of allOrders) {
-    if (!o.wholesalerLocation) continue;
-
-    const nearby = await isWithin20Km(
-      boy.location,
-      o.wholesalerLocation
-    );
-
-    if (nearby) filtered.push(o);
-  }
-
-  res.json({ success:true, orders: filtered });
 });
 /* ================= SERVER ================= */
 app.get("/", (_,res)=>res.send("Backend Running ✅"));
