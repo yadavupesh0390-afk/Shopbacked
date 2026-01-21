@@ -326,7 +326,7 @@ if (order.wholesalerLocation?.lat && order.wholesalerLocation?.lng) {
     const message = {
       token: deliveryUser.fcmToken,
       notification: {
-        title: "🚚 New Delivery Order",
+        title: "🚚 Bazaarsathi",
         body: `${order.productName} pickup nearby (${distanceKm.toFixed(1)} KM)`
       },
       webpush: {
