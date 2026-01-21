@@ -298,7 +298,56 @@ if (notes.wholesalerId) {
   }
 }
 
+/* ================= DELIVERY BOY LOCATION BASED NOTIFICATION ================= */
 
+if (order.wholesalerLocation?.lat && order.wholesalerLocation?.lng) {
+
+  const deliveryProfiles = await DeliveryProfile.find({
+    location: { $exists: true }
+  });
+
+  for (const boy of deliveryProfiles) {
+
+    if (!boy.location?.lat || !boy.location?.lng) continue;
+
+    const distanceKm = getDistanceKm(
+      boy.location,
+      order.wholesalerLocation
+    );
+
+    // ❌ 20 KM se bahar = ignore
+    if (distanceKm > 20) continue;
+
+    // 🔹 Delivery boy ka user
+    const deliveryUser = await User.findById(boy.deliveryBoyId);
+    if (!deliveryUser?.fcmToken) continue;
+
+    // ✅ SEND NOTIFICATION
+    const message = {
+      token: deliveryUser.fcmToken,
+      notification: {
+        title: "🚚 New Delivery Order",
+        body: `${order.productName} pickup nearby (${distanceKm.toFixed(1)} KM)`
+      },
+      webpush: {
+        fcmOptions: {
+          link: "https://bazaarsathi.vercel.app/delivery.html"
+        }
+      },
+      data: {
+        orderId: order._id.toString(),
+        status: "paid"
+      }
+    };
+
+    try {
+      await admin.messaging().send(message);
+      console.log("✅ Delivery notification sent to:", boy.deliveryBoyId);
+    } catch (err) {
+      console.error("❌ Delivery FCM error:", err.code);
+    }
+  }
+        }
 
 
       
