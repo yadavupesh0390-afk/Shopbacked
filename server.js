@@ -1374,37 +1374,37 @@ res.json({ success:true, orders });
 
 /* ===== DELIVERY BOY ===== */
 app.get("/api/orders/delivery/:id", async (req,res)=>{
-const now = Date.now();
+  const boy = await DeliveryProfile.findOne({
+    deliveryBoyId: req.params.id
+  });
 
-const orders = await Order.find({
-$and:[
-{
-$or:[
-{ status:"paid" },
-{ status:"delivery_accepted" },
-{ status:"picked_up" },
-{ status:"delivery_code_generated" },
-{
-status:"delivered",
-statusHistory:{
-$elemMatch:{
-status:"delivered",
-time:{ $gte: now - TEN_MIN }
-}
-}
-}
-]
-},
-{
-$or:[
-{ deliveryBoyId:req.params.id },
-{ deliveryBoyId:{ $exists:false } }
-]
-}
-]
-}).sort({ createdAt:-1 });
+  if (!boy || !boy.location) {
+    return res.json({ success:true, orders:[] });
+  }
 
-res.json({ success:true, orders });
+  const allOrders = await Order.find({
+    status: { $in: [
+      "paid",
+      "delivery_accepted",
+      "picked_up",
+      "delivery_code_generated"
+    ]}
+  }).sort({ createdAt:-1 });
+
+  const filtered = [];
+
+  for (const o of allOrders) {
+    if (!o.wholesalerLocation) continue;
+
+    const nearby = await isWithin20Km(
+      boy.location,
+      o.wholesalerLocation
+    );
+
+    if (nearby) filtered.push(o);
+  }
+
+  res.json({ success:true, orders: filtered });
 });
 /* ================= SERVER ================= */
 app.get("/", (_,res)=>res.send("Backend Running ✅"));
