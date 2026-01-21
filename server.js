@@ -383,31 +383,22 @@ app.use(express.json({ limit: "10mb" }));
 
 
 // distance calculation in KM
-  async function isWithin20Km(from, to) {
-  if (!from || !to) return false;
-
-  try {
-    const { distanceKm } = await getRoadDistanceTime(from, to);
-    return distanceKm <= 20;
-  } catch (e) {
-    return false;
-  }
-  }
-
-function getDistanceKm(loc1, loc2) {
+  function isWithin20Km(loc1, loc2) {
   const R = 6371;
   const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
   const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
 
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLat / 2) ** 2 +
     Math.cos(loc1.lat * Math.PI / 180) *
     Math.cos(loc2.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.sin(dLng / 2) ** 2;
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return (R * c) <= 20;
 }
+
+
 
 async function getRoadDistanceTime(from, to) {
   const url = `https://router.project-osrm.org/route/v1/driving/` +
