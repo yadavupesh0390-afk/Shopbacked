@@ -334,7 +334,16 @@ app.use(express.json({ limit: "10mb" }));
 
 
 // distance calculation in KM
-  
+  async function isWithin20Km(from, to) {
+  if (!from || !to) return false;
+
+  try {
+    const { distanceKm } = await getRoadDistanceTime(from, to);
+    return distanceKm <= 20;
+  } catch (e) {
+    return false;
+  }
+  }
 
 async function getRoadDistanceTime(from, to) {
   const url = `https://router.project-osrm.org/route/v1/driving/` +
