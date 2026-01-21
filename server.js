@@ -298,46 +298,7 @@ if (notes.wholesalerId) {
   }
 }
 
-// 🔔 DELIVERY BOY NOTIFICATION
-/* ================= PUSH NOTIFICATION (DELIVERY BOY) ================= */
-if (notes.deliveryBoyId) {
 
-  const deliveryUser = await User.findById(notes.deliveryBoyId);
-
-  console.log("DELIVERY FCM:", deliveryUser?.fcmToken);
-
-  if (deliveryUser?.fcmToken) {
-
-    const message = {
-      token: deliveryUser.fcmToken,
-      notification: {
-        title: "🚚 BazaarSathi",
-        body: "आपको नया डिलीवरी ऑर्डर मिला है"
-      },
-      webpush: {
-        headers: { Urgency: "high" },
-        fcmOptions: {
-          link: "https://bazaarsathi.vercel.app/delivery.html"
-        }
-      },
-      data: {
-        orderId: order._id.toString(),
-        paymentId: payment.id,
-        role: "delivery"
-      }
-    };
-
-    try {
-      await admin.messaging().send(message);
-      console.log("✅ Delivery notification sent");
-    } catch (err) {
-      console.error("❌ DELIVERY FCM ERROR:", err.code);
-    }
-
-  } else {
-    console.log("⚠️ Delivery FCM missing, skipping");
-  }
-}
 
 
       
