@@ -300,39 +300,43 @@ if (notes.wholesalerId) {
 
 /* ================= DELIVERY BOY LOCATION BASED NOTIFICATION ================= */
 
-if (order.wholesalerLocation?.lat && order.wholesalerLocation?.lng) {
+/* ===== DELIVERY BOY LOCATION BASED NOTIFICATION ===== */
 
+if (
+  order.wholesalerLocation &&
+  Number.isFinite(order.wholesalerLocation.lat) &&
+  Number.isFinite(order.wholesalerLocation.lng)
+) {
   const deliveryProfiles = await DeliveryProfile.find({
     location: { $exists: true }
   });
 
   for (const boy of deliveryProfiles) {
 
-    if (!boy.location?.lat || !boy.location?.lng) continue;
+    if (
+      !boy.location ||
+      !Number.isFinite(boy.location.lat) ||
+      !Number.isFinite(boy.location.lng)
+    ) continue;
 
-    const distanceKm = getDistanceKm(
-      boy.location,
-      order.wholesalerLocation
+    const distanceKm = safeDistance(
+      boy.location.lat,
+      boy.location.lng,
+      order.wholesalerLocation.lat,
+      order.wholesalerLocation.lng
     );
 
-    // ❌ 20 KM se bahar = ignore
-    if (distanceKm > 20) continue;
+    // ❌ invalid ya 20km se bahar
+    if (distanceKm === null || distanceKm > 20) continue;
 
-    // 🔹 Delivery boy ka user
     const deliveryUser = await User.findById(boy.deliveryBoyId);
     if (!deliveryUser?.fcmToken) continue;
 
-    // ✅ SEND NOTIFICATION
     const message = {
       token: deliveryUser.fcmToken,
       notification: {
-        title: "🚚 Bazaarsathi",
+        title: "🚚 BazaarSathi",
         body: `${order.productName} pickup nearby (${distanceKm.toFixed(1)} KM)`
-      },
-      webpush: {
-        fcmOptions: {
-          link: "https://bazaarsathi.vercel.app/delivery.html"
-        }
       },
       data: {
         orderId: order._id.toString(),
@@ -340,14 +344,10 @@ if (order.wholesalerLocation?.lat && order.wholesalerLocation?.lng) {
       }
     };
 
-    try {
-      await admin.messaging().send(message);
-      console.log("✅ Delivery notification sent to:", boy.deliveryBoyId);
-    } catch (err) {
-      console.error("❌ Delivery FCM error:", err.code);
-    }
+    await admin.messaging().send(message);
+    console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
   }
-        }
+}
 
 
       
@@ -380,19 +380,22 @@ if (order.wholesalerLocation?.lat && order.wholesalerLocation?.lng) {
 
 const axios = require("axios");
 app.use(express.json({ limit: "10mb" }));
-function getDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in KM
+function safeDistance(lat1, lng1, lat2, lng2) {
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) {
+    return null;
+  }
+
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
 
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) *
     Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.sin(dLng / 2) ** 2;
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 // distance calculation in KM
