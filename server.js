@@ -272,7 +272,7 @@ if (notes.wholesalerId) {
     const message = {
       token: wholesalerUser.fcmToken,
       notification: {
-        title: "📥 BazaarSathi",
+        title: "🌐 BazaarSathi",
         body: `₹${notes.price} का नया ऑर्डर मिला है`
       },
       webpush: {
@@ -335,7 +335,7 @@ if (
     const message = {
       token: deliveryUser.fcmToken,
       notification: {
-        title: "🚚 BazaarSathi",
+        title: "🌐 BazaarSathi",
         body: `${order.productName} pickup nearby (${distanceKm.toFixed(1)} KM)`
       },
       data: {
