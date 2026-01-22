@@ -336,7 +336,7 @@ if (
       token: deliveryUser.fcmToken,
       notification: {
         title: "🌐 BazaarSathi",
-        body: `${order.productName} pickup nearby (${distanceKm.toFixed(1)} KM)`
+        body: '📲 ऑर्डर आया, जल्दी देखो!'
       },
       data: {
         orderId: order._id.toString(),
