@@ -174,12 +174,11 @@ app.post(
       const event = JSON.parse(req.body.toString());
       console.log("✅ Webhook Hit:", event.event);
 
-      // ❗ Only handle payment.captured
+      // Only handle payment.captured
       if (event.event !== "payment.captured") {
         return res.json({ success: true });
       }
 
-      /* ================= PAYMENT DATA ================= */
       const payment = event.payload.payment.entity;
       const notes = payment.notes || {};
       const paymentId = payment.id;
@@ -189,60 +188,34 @@ app.post(
 
       /* ================= DUPLICATE CHECK ================= */
       const existingOrder = await Order.findOne({ paymentId });
-
       if (existingOrder) {
         console.log("⚠️ Duplicate webhook ignored for:", paymentId);
         return res.json({ success: true });
       }
 
-      /* ================= CART PAYMENT ================= */
-      if (notes.products) {
-        const products = JSON.parse(notes.products);
+      /* ================= SAFE NUMBER HELPER ================= */
+      const safeNumber = (val, fallback = 0) => {
+        const num = Number(val);
+        return Number.isFinite(num) ? num : fallback;
+      };
 
-        for (const p of products) {
-          order = await Order.create({
-            paymentId: payment.id,
+      /* ================= CART / DIRECT BUY ================= */
+      const productList = notes.products ? JSON.parse(notes.products) : [notes];
 
-            productId: p.productId || notes.productId,
-            productName: p.productName || notes.productName,
-            productImg: p.productImg || "",
+      for (const p of productList) {
+        const price = safeNumber(p.price || notes.price);
+        const totalDelivery = safeNumber(notes.totalDelivery);
+        const retailerPays = safeNumber(notes.retailerPays);
+        const wholesalerPays = safeNumber(notes.wholesalerPays);
 
-            price: Number(p.price || notes.price),
-
-            wholesalerId: notes.wholesalerId,
-            wholesalerName: notes.wholesalerName,
-            wholesalerMobile: notes.wholesalerMobile,
-            wholesalerLocation: notes.wholesalerLocation || null,
-
-            retailerId: notes.retailerId,
-            retailerName: notes.retailerName,
-            retailerMobile: notes.retailerMobile,
-            retailerLocation: notes.retailerLocation || null,
-
-            vehicleType: notes.vehicleType,
-            deliveryCharge: Number(notes.totalDelivery),
-            retailerDeliveryPay: Number(notes.retailerPays),
-            wholesalerDeliveryPay: Number(notes.wholesalerPays),
-
-            totalAmount:
-              Number(p.price || notes.price) +
-              Number(notes.retailerPays),
-
-            status: "paid",
-            statusHistory: [{ status: "paid", time: Date.now() }]
-          });
-        }
-      }
-
-      /* ================= DIRECT BUY ================= */
-      else {
-        order = await Order.create({
+        const order = await Order.create({
           paymentId: payment.id,
 
-          productId: notes.productId,
-          productName: notes.productName,
-          productImg: notes.productImg || "",
-          price: Number(notes.price),
+          productId: p.productId || notes.productId,
+          productName: p.productName || notes.productName,
+          productImg: p.productImg || "",
+
+          price,
 
           wholesalerId: notes.wholesalerId,
           wholesalerName: notes.wholesalerName,
@@ -255,12 +228,12 @@ app.post(
           retailerLocation: notes.retailerLocation || null,
 
           vehicleType: notes.vehicleType,
-          deliveryCharge: Number(notes.totalDelivery),
-          retailerDeliveryPay: Number(notes.retailerPays),
-          wholesalerDeliveryPay: Number(notes.wholesalerPays),
 
-          totalAmount:
-            Number(notes.price) + Number(notes.retailerPays),
+          deliveryCharge: totalDelivery,
+          retailerDeliveryPay: retailerPays,
+          wholesalerDeliveryPay: wholesalerPays,
+
+          totalAmount: price + retailerPays,
 
           status: "paid",
           statusHistory: [{ status: "paid", time: Date.now() }]
@@ -268,102 +241,77 @@ app.post(
       }
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
-      /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
-if (notes.wholesalerId) {
+      if (notes.wholesalerId) {
+        const wholesalerUser = await User.findById(notes.wholesalerId);
 
-  const wholesalerUser = await User.findById(notes.wholesalerId);
+        if (wholesalerUser?.fcmToken) {
+          const message = {
+            token: wholesalerUser.fcmToken,
+            notification: {
+              title: "🌐 BazaarSathi",
+              body: `₹${safeNumber(notes.price)} का नया ऑर्डर मिला है`
+            },
+            webpush: {
+              fcmOptions: { link: "https://bazaarsathi.vercel.app/wholesaler.html" }
+            },
+            data: {
+              orderId: order._id.toString(),
+              paymentId
+            }
+          };
 
-  console.log("WHOLESALER FCM:", wholesalerUser?.fcmToken);
-
-  if (wholesalerUser?.fcmToken) {
-
-    const message = {
-      token: wholesalerUser.fcmToken,
-      notification: {
-        title: "🌐 BazaarSathi",
-        body: `₹${notes.price} का नया ऑर्डर मिला है`
-      },
-      webpush: {
-        fcmOptions: {
-          link: "https://bazaarsathi.vercel.app/wholesaler.html"
+          try {
+            await admin.messaging().send(message);
+            console.log("✅ Wholesaler notification sent");
+          } catch (err) {
+            console.error("❌ WHOLESALER FCM ERROR:", err.code);
+            await handleFCMError(err, wholesalerUser._id);
+          }
+        } else {
+          console.log("⚠️ Wholesaler FCM missing, skipping");
         }
-      },
-      data: {
-        orderId: order._id.toString(),
-        paymentId: payment.id
       }
-    };
 
-    try {
-  await admin.messaging().send(message);
-  console.log("✅ Wholesaler notification sent");
-} catch (err) {
-  console.error("❌ WHOLESALER FCM ERROR:", err.code);
-  await handleFCMError(err, wholesalerUser._id);
-}
+      /* ================= DELIVERY BOY LOCATION BASED NOTIFICATION ================= */
+      if (
+        order.wholesalerLocation &&
+        Number.isFinite(order.wholesalerLocation.lat) &&
+        Number.isFinite(order.wholesalerLocation.lng)
+      ) {
+        const deliveryProfiles = await DeliveryProfile.find({ location: { $exists: true } });
 
-  } else {
-    console.log("⚠️ Wholesaler FCM missing, skipping");
-  }
-}
+        for (const boy of deliveryProfiles) {
+          if (!boy.location || !Number.isFinite(boy.location.lat) || !Number.isFinite(boy.location.lng))
+            continue;
 
-/* ================= DELIVERY BOY LOCATION BASED NOTIFICATION ================= */
+          const distanceKm = safeDistance(
+            boy.location.lat,
+            boy.location.lng,
+            order.wholesalerLocation.lat,
+            order.wholesalerLocation.lng
+          );
 
-/* ===== DELIVERY BOY LOCATION BASED NOTIFICATION ===== */
+          if (distanceKm === null || distanceKm > 20) continue;
 
-if (
-  order.wholesalerLocation &&
-  Number.isFinite(order.wholesalerLocation.lat) &&
-  Number.isFinite(order.wholesalerLocation.lng)
-) {
-  const deliveryProfiles = await DeliveryProfile.find({
-    location: { $exists: true }
-  });
+          const deliveryUser = await User.findById(boy.deliveryBoyId);
+          if (!deliveryUser?.fcmToken) continue;
 
-  for (const boy of deliveryProfiles) {
+          const message = {
+            token: deliveryUser.fcmToken,
+            notification: { title: "🌐 BazaarSathi", body: "📲 ऑर्डर आया, जल्दी देखो!" },
+            data: { orderId: order._id.toString(), status: "paid" }
+          };
 
-    if (
-      !boy.location ||
-      !Number.isFinite(boy.location.lat) ||
-      !Number.isFinite(boy.location.lng)
-    ) continue;
-
-    const distanceKm = safeDistance(
-      boy.location.lat,
-      boy.location.lng,
-      order.wholesalerLocation.lat,
-      order.wholesalerLocation.lng
-    );
-
-    // ❌ invalid ya 20km se bahar
-    if (distanceKm === null || distanceKm > 20) continue;
-
-    const deliveryUser = await User.findById(boy.deliveryBoyId);
-    if (!deliveryUser?.fcmToken) continue;
-
-    const message = {
-      token: deliveryUser.fcmToken,
-      notification: {
-        title: "🌐 BazaarSathi",
-        body: '📲 ऑर्डर आया, जल्दी देखो!'
-      },
-      data: {
-        orderId: order._id.toString(),
-        status: "paid"
+          try {
+            await admin.messaging().send(message);
+            console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
+          } catch (err) {
+            console.error("❌ DELIVERY FCM ERROR:", err.code);
+            await handleFCMError(err, deliveryUser._id);
+          }
+        }
       }
-    };
 
-    try {
-  await admin.messaging().send(message);
-  console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
-} catch (err) {
-  console.error("❌ DELIVERY FCM ERROR:", err.code);
-  await handleFCMError(err, deliveryUser._id);
-  }
-}
-
-}
-      
       /* ================= SMS (RETAILER) ================= */
       if (notes.retailerMobile) {
         const toNumber = notes.retailerMobile.startsWith("+")
@@ -372,7 +320,7 @@ if (
 
         client.messages
           .create({
-            body: `Payment successful ₹${notes.price}. Order ID: ${order._id}`,
+            body: `Payment successful ₹${safeNumber(notes.price)}. Order ID: ${order._id}`,
             from: process.env.TWILIO_NUMBER,
             to: toNumber
           })
@@ -380,15 +328,15 @@ if (
           .catch(err => console.error("❌ SMS failed:", err));
       }
 
-      /* ================= FINAL RESPONSE ================= */
       res.json({ success: true });
-
     } catch (err) {
       console.error("❌ Webhook error:", err);
       res.status(500).send("Webhook error");
     }
   }
 );
+          
+  
 
 
 const axios = require("axios");
