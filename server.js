@@ -174,6 +174,7 @@ app.post(
       const event = JSON.parse(req.body.toString());
       console.log("✅ Webhook Hit:", event.event);
 
+      // ❗ Only handle payment.captured
       if (event.event !== "payment.captured") {
         return res.json({ success: true });
       }
@@ -181,11 +182,18 @@ app.post(
       /* ================= PAYMENT DATA ================= */
       const payment = event.payload.payment.entity;
       const notes = payment.notes || {};
+      const paymentId = payment.id;
 
+      console.log("PAYMENT ID:", paymentId);
       console.log("NOTES:", notes);
-      console.log("WHOLESALER ID:", notes.wholesalerId);
 
-      let order;
+      /* ================= DUPLICATE CHECK ================= */
+      const existingOrder = await Order.findOne({ paymentId });
+
+      if (existingOrder) {
+        console.log("⚠️ Duplicate webhook ignored for:", paymentId);
+        return res.json({ success: true });
+      }
 
       /* ================= CART PAYMENT ================= */
       if (notes.products) {
