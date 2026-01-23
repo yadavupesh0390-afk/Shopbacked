@@ -81,8 +81,7 @@ const Product = mongoose.model("Product", productSchema);
 /* ================= ORDER ================= */
 
 const orderSchema = new mongoose.Schema({
-paymentId: String,
-paymentId: { type: String, unique: true }
+paymentId: { type: String, unique: true, required: true },
 image: { type: String },
 wholesalerId: String,
 wholesalerName: String,
