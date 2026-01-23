@@ -287,11 +287,12 @@ if (notes.wholesalerId) {
     };
 
     try {
-      await admin.messaging().send(message);
-      console.log("✅ Wholesaler notification sent");
-    } catch (err) {
-      console.error("❌ WHOLESALER FCM ERROR:", err.code);
-    }
+  await admin.messaging().send(message);
+  console.log("✅ Wholesaler notification sent");
+} catch (err) {
+  console.error("❌ WHOLESALER FCM ERROR:", err.code);
+  await handleFCMError(err, wholesalerUser._id);
+}
 
   } else {
     console.log("⚠️ Wholesaler FCM missing, skipping");
@@ -414,7 +415,15 @@ function safeDistance(lat1, lng1, lat2, lng2) {
   return (R * c) <= 20;
 }
 
-
+async function handleFCMError(err, userId) {
+  if (
+    err.code === "messaging/registration-token-not-registered" ||
+    err.code === "messaging/invalid-registration-token"
+  ) {
+    console.log("🧹 Invalid FCM token, removing from DB:", userId);
+    await User.findByIdAndUpdate(userId, { fcmToken: null });
+  }
+}
 
 async function getRoadDistanceTime(from, to) {
   const url = `https://router.project-osrm.org/route/v1/driving/` +
