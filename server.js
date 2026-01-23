@@ -157,6 +157,7 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
+      let order;
       /* ================= VERIFY SIGNATURE ================= */
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
