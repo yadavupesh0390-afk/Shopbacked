@@ -486,7 +486,92 @@ function calculateDeliveryCharge({
 
 
 
+app.post("/api/delivery/calculate", async (req, res) => {
+  try {
+    const {
+      orderAmount,
+      vehicleType,
+      retailerLocation,
+      wholesalerLocation
+    } = req.body;
 
+    console.log("🧮 DELIVERY INPUT DEBUG:", {
+      orderAmount,
+      vehicleType,
+      retailerLocation,
+      wholesalerLocation
+    });
+
+    if (
+      !retailerLocation ||
+      !Number.isFinite(retailerLocation.lat) ||
+      !Number.isFinite(retailerLocation.lng)
+    ) {
+      return res.json({
+        success: false,
+        error: "Retailer location invalid"
+      });
+    }
+
+    if (
+      !wholesalerLocation ||
+      !Number.isFinite(wholesalerLocation.lat) ||
+      !Number.isFinite(wholesalerLocation.lng)
+    ) {
+      return res.json({
+        success: false,
+        error: "Wholesaler location invalid"
+      });
+    }
+
+    if (!vehicleType) {
+      return res.json({
+        success: false,
+        error: "Vehicle type missing"
+      });
+    }
+
+    const safeOrderAmount = safeNumber(orderAmount);
+    if (safeOrderAmount <= 0) {
+      return res.json({
+        success: false,
+        error: "Invalid order amount"
+      });
+    }
+
+    // ✅ ROAD DISTANCE
+    const { distanceKm, timeMinutes } =
+      await getRoadDistanceTime(retailerLocation, wholesalerLocation);
+
+    const delivery = calculateDeliveryCharge({
+      orderAmount: safeOrderAmount,
+      vehicleType,
+      distanceKm,
+      timeMinutes
+    });
+
+    if (delivery.error) {
+      return res.json({ success:false, error: delivery.error });
+    }
+
+    console.log("✅ DELIVERY CALCULATED:", {
+      distanceKm,
+      timeMinutes,
+      ...delivery
+    });
+
+    res.json({
+      success: true,
+      distanceKm: Number(distanceKm.toFixed(2)),
+      timeMinutes: Math.ceil(timeMinutes),
+      ...delivery
+    });
+
+  } catch (err) {
+    console.error("❌ Delivery calc error:", err);
+    res.json({ success:false, error:"Route calculation failed" });
+  }
+});
 const cartRoutes = require("./cart");
 
 app.use("/api/cart", cartRoutes);
