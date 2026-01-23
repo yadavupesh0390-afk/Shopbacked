@@ -345,12 +345,16 @@ if (
       }
     };
 
-    await admin.messaging().send(message);
-    console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
+    try {
+  await admin.messaging().send(message);
+  console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
+} catch (err) {
+  console.error("❌ DELIVERY FCM ERROR:", err.code);
+  await handleFCMError(err, deliveryUser._id);
   }
 }
 
-
+}
       
       /* ================= SMS (RETAILER) ================= */
       if (notes.retailerMobile) {
