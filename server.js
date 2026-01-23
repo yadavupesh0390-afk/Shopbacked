@@ -157,7 +157,8 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
-      let order;
+      let order; // ✅ Add this line at the top of the webhook function
+
       /* ================= VERIFY SIGNATURE ================= */
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
@@ -175,7 +176,6 @@ app.post(
       const event = JSON.parse(req.body.toString());
       console.log("✅ Webhook Hit:", event.event);
 
-      // Only handle payment.captured
       if (event.event !== "payment.captured") {
         return res.json({ success: true });
       }
@@ -187,59 +187,69 @@ app.post(
       console.log("PAYMENT ID:", paymentId);
       console.log("NOTES:", notes);
 
-      /* ================= DUPLICATE CHECK ================= */
       const existingOrder = await Order.findOne({ paymentId });
       if (existingOrder) {
         console.log("⚠️ Duplicate webhook ignored for:", paymentId);
         return res.json({ success: true });
       }
 
-      /* ================= SAFE NUMBER HELPER ================= */
-      const safeNumber = (val, fallback = 0) => {
-        const num = Number(val);
-        return Number.isFinite(num) ? num : fallback;
-      };
+      // -------------------- CART PAYMENT --------------------
+      if (notes.products) {
+        const products = JSON.parse(notes.products);
 
-      /* ================= CART / DIRECT BUY ================= */
-      const productList = notes.products ? JSON.parse(notes.products) : [notes];
-
-      for (const p of productList) {
-        const price = safeNumber(p.price || notes.price);
-        const totalDelivery = safeNumber(notes.totalDelivery);
-        const retailerPays = safeNumber(notes.retailerPays);
-        const wholesalerPays = safeNumber(notes.wholesalerPays);
-
-        const order = await Order.create({
+        for (const p of products) {
+          order = await Order.create({
+            paymentId: payment.id,
+            productId: p.productId || notes.productId,
+            productName: p.productName || notes.productName,
+            productImg: p.productImg || "",
+            price: Number(p.price || notes.price),
+            wholesalerId: notes.wholesalerId,
+            wholesalerName: notes.wholesalerName,
+            wholesalerMobile: notes.wholesalerMobile,
+            wholesalerLocation: notes.wholesalerLocation || null,
+            retailerId: notes.retailerId,
+            retailerName: notes.retailerName,
+            retailerMobile: notes.retailerMobile,
+            retailerLocation: notes.retailerLocation || null,
+            vehicleType: notes.vehicleType,
+            deliveryCharge: Number(notes.totalDelivery),
+            retailerDeliveryPay: Number(notes.retailerPays),
+            wholesalerDeliveryPay: Number(notes.wholesalerPays),
+            totalAmount:
+              Number(p.price || notes.price) + Number(notes.retailerPays),
+            status: "paid",
+            statusHistory: [{ status: "paid", time: Date.now() }]
+          });
+        }
+      } 
+      // -------------------- DIRECT BUY --------------------
+      else {
+        order = await Order.create({
           paymentId: payment.id,
-
-          productId: p.productId || notes.productId,
-          productName: p.productName || notes.productName,
-          productImg: p.productImg || "",
-
-          price,
-
+          productId: notes.productId,
+          productName: notes.productName,
+          productImg: notes.productImg || "",
+          price: Number(notes.price),
           wholesalerId: notes.wholesalerId,
           wholesalerName: notes.wholesalerName,
           wholesalerMobile: notes.wholesalerMobile,
           wholesalerLocation: notes.wholesalerLocation || null,
-
           retailerId: notes.retailerId,
           retailerName: notes.retailerName,
           retailerMobile: notes.retailerMobile,
           retailerLocation: notes.retailerLocation || null,
-
           vehicleType: notes.vehicleType,
-
-          deliveryCharge: totalDelivery,
-          retailerDeliveryPay: retailerPays,
-          wholesalerDeliveryPay: wholesalerPays,
-
-          totalAmount: price + retailerPays,
-
+          deliveryCharge: Number(notes.totalDelivery),
+          retailerDeliveryPay: Number(notes.retailerPays),
+          wholesalerDeliveryPay: Number(notes.wholesalerPays),
+          totalAmount: Number(notes.price) + Number(notes.retailerPays),
           status: "paid",
           statusHistory: [{ status: "paid", time: Date.now() }]
         });
       }
+      
+      // ... rest of notification and SMS logic
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
