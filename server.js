@@ -352,6 +352,11 @@ app.post(
 
 const axios = require("axios");
 app.use(express.json({ limit: "10mb" }));
+function safeNumber(val, def = 0) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : def;
+}
+
 function safeDistance(lat1, lng1, lat2, lng2) {
   if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) {
     return null;
