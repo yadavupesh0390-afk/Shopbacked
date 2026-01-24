@@ -253,76 +253,113 @@ app.post(
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
-        const wholesalerUser = await User.findById(notes.wholesalerId);
+  const wholesalerUser = await User.findById(notes.wholesalerId);
 
-        if (wholesalerUser?.fcmToken) {
-          const message = {
-            token: wholesalerUser.fcmToken,
-            notification: {
-              title: "🌐 BazaarSathi",
-              body: `₹${safeNumber(notes.price)} का नया ऑर्डर मिला है`
-            },
-            webpush: {
-              fcmOptions: { link: "https://bazaarsathi.vercel.app/wholesaler.html" }
-            },
-            data: {
-              orderId: order._id.toString(),
-              paymentId
-            }
-          };
+  if (wholesalerUser?.fcmToken) {
+    const message = {
+      token: wholesalerUser.fcmToken,
 
-          try {
-            await admin.messaging().send(message);
-            console.log("✅ Wholesaler notification sent");
-          } catch (err) {
-            console.error("❌ WHOLESALER FCM ERROR:", err.code);
-            await handleFCMError(err, wholesalerUser._id);
-          }
-        } else {
-          console.log("⚠️ Wholesaler FCM missing, skipping");
+      notification: {
+        title: "🌐 BazaarSathi",
+        body: `₹${safeNumber(notes.price)} का नया ऑर्डर मिला है`
+      },
+
+      // 🔥 ANDROID SUPPORT (MOST IMPORTANT)
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "orders",
+          sound: "default"
         }
+      },
+
+      // 🌐 WEB SUPPORT
+      webpush: {
+        fcmOptions: {
+          link: "https://bazaarsathi.vercel.app/wholesaler.html"
+        }
+      },
+
+      data: {
+        orderId: order._id.toString(),
+        paymentId: paymentId,
+        click_action: "OPEN_ORDER"
       }
+    };
+
+    try {
+      await admin.messaging().send(message);
+      console.log("✅ Wholesaler notification sent");
+    } catch (err) {
+      console.error("❌ WHOLESALER FCM ERROR:", err.code);
+      await handleFCMError(err, wholesalerUser._id);
+    }
+  } else {
+    console.log("⚠️ Wholesaler FCM missing, skipping");
+  }
+}
 
       /* ================= DELIVERY BOY LOCATION BASED NOTIFICATION ================= */
       if (
-        order.wholesalerLocation &&
-        Number.isFinite(order.wholesalerLocation.lat) &&
-        Number.isFinite(order.wholesalerLocation.lng)
-      ) {
-        const deliveryProfiles = await DeliveryProfile.find({ location: { $exists: true } });
+  order.wholesalerLocation &&
+  Number.isFinite(order.wholesalerLocation.lat) &&
+  Number.isFinite(order.wholesalerLocation.lng)
+) {
+  const deliveryProfiles = await DeliveryProfile.find({
+    location: { $exists: true }
+  });
 
-        for (const boy of deliveryProfiles) {
-          if (!boy.location || !Number.isFinite(boy.location.lat) || !Number.isFinite(boy.location.lng))
-            continue;
+  for (const boy of deliveryProfiles) {
+    if (
+      !boy.location ||
+      !Number.isFinite(boy.location.lat) ||
+      !Number.isFinite(boy.location.lng)
+    ) continue;
 
-          const distanceKm = safeDistance(
-            boy.location.lat,
-            boy.location.lng,
-            order.wholesalerLocation.lat,
-            order.wholesalerLocation.lng
-          );
+    const distanceKm = safeDistance(
+      boy.location.lat,
+      boy.location.lng,
+      order.wholesalerLocation.lat,
+      order.wholesalerLocation.lng
+    );
 
-          if (distanceKm === null || distanceKm > 20) continue;
+    if (distanceKm === null || distanceKm > 20) continue;
 
-          const deliveryUser = await User.findById(boy.deliveryBoyId);
-          if (!deliveryUser?.fcmToken) continue;
+    const deliveryUser = await User.findById(boy.deliveryBoyId);
+    if (!deliveryUser?.fcmToken) continue;
 
-          const message = {
-            token: deliveryUser.fcmToken,
-            notification: { title: "🌐 BazaarSathi", body: "📲 ऑर्डर आया, जल्दी देखो!" },
-            data: { orderId: order._id.toString(), status: "paid" }
-          };
+    const message = {
+      token: deliveryUser.fcmToken,
 
-          try {
-            await admin.messaging().send(message);
-            console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
-          } catch (err) {
-            console.error("❌ DELIVERY FCM ERROR:", err.code);
-            await handleFCMError(err, deliveryUser._id);
-          }
+      notification: {
+        title: "🌐 BazaarSathi",
+        body: "📲 नया ऑर्डर आया है, जल्दी देखो!"
+      },
+
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "orders",
+          sound: "default"
         }
-      }
+      },
 
+      data: {
+        orderId: order._id.toString(),
+        status: "paid",
+        click_action: "OPEN_ORDER"
+      }
+    };
+
+    try {
+      await admin.messaging().send(message);
+      console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm);
+    } catch (err) {
+      console.error("❌ DELIVERY FCM ERROR:", err.code);
+      await handleFCMError(err, deliveryUser._id);
+    }
+  }
+}
       /* ================= SMS (RETAILER) ================= */
       if (notes.retailerMobile) {
         const toNumber = notes.retailerMobile.startsWith("+")
