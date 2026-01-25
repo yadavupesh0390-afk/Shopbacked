@@ -281,34 +281,52 @@ const crypto = require("crypto");
 
       /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
       if (notes.wholesalerId) {
-        const wholesalerUser = await User.findById(notes.wholesalerId);
+  const wholesalerUser = await User.findById(notes.wholesalerId);
 
-        if (wholesalerUser?.fcmToken) {
-          await admin.messaging().send({
-            token: wholesalerUser.fcmToken,
-            notification: {
-              title: "🌐 BazaarSathi",
-              body: "नया ऑर्डर मिला है"
-            },
-            android: {
-              priority: "high",
-              notification: { channelId: "orders", sound: "default" }
-            },
+  if (wholesalerUser?.fcmToken) {
+    try {
+      await admin.messaging().send({
+        token: wholesalerUser.fcmToken,
 
-            // 🌐 WEB SUPPORT  
-            webpush: {  
-           fcmOptions: {  
-                    link: "https://bazaarsathi.vercel.app/wholesaler.html"  
-              }  
-             },   
-            data: {
-              orderId: order._id.toString(),
-              paymentId
-            }
-          });
-          console.log("✅ Wholesaler notification sent");
+        notification: {
+          title: "🌐 BazaarSathi",
+          body: "नया ऑर्डर मिला है"
+        },
+
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "orders",
+            sound: "default"
+          }
+        },
+
+        // 🌐 WEB SUPPORT
+        webpush: {
+          fcmOptions: {
+            link: "https://bazaarsathi.vercel.app/wholesaler.html"
+          }
+        },
+
+        data: {
+          orderId: order._id.toString(),
+          paymentId: paymentId,
+          click_action: "OPEN_DASHBOARD"
         }
-      }
+      });
+
+      console.log("✅ Wholesaler notification sent");
+
+    } catch (err) {
+      console.error("❌ WHOLESALER FCM ERROR:", err.code || err.message);
+      await handleFCMError(err, wholesalerUser._id);
+    }
+
+  } else {
+    console.log("⚠️ Wholesaler FCM missing, skipping:", notes.wholesalerId);
+  }
+}
+      
 
       /* ================= DELIVERY BOY NOTIFICATION ================= */
       if (
