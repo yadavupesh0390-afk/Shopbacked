@@ -294,6 +294,13 @@ const crypto = require("crypto");
               priority: "high",
               notification: { channelId: "orders", sound: "default" }
             },
+
+            // 🌐 WEB SUPPORT  
+            webpush: {  
+           fcmOptions: {  
+                    link: "https://bazaarsathi.vercel.app/wholesaler.html"  
+              }  
+             },   
             data: {
               orderId: order._id.toString(),
               paymentId
@@ -338,6 +345,12 @@ const crypto = require("crypto");
               priority: "high",
               notification: { channelId: "orders", sound: "default" }
             },
+            // 🌐 WEB SUPPORT  
+            webpush: {  
+           fcmOptions: {  
+                    link: "https://bazaarsathi.vercel.app/retailer.html"  
+              }  
+             },   
             data: {
               orderId: order._id.toString(),
               status: "paid"
