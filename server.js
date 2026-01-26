@@ -412,6 +412,32 @@ const crypto = require("crypto");
 
 const axios = require("axios");
 app.use(express.json({ limit: "10mb" }));
+async function markOrderPaid(orderId, paymentId) {
+  const order = await Order.findById(orderId);
+  if (!order) return;
+
+  order.status = "paid";
+  order.paymentId = paymentId;
+
+  // 🔥 FORCE location save
+  if (!order.wholesalerLocation) {
+    const wholesaler = await User.findById(order.wholesalerId);
+    if (wholesaler?.location) {
+      order.wholesalerLocation = wholesaler.location;
+    }
+  }
+
+  if (!order.retailerLocation) {
+    const retailer = await User.findById(order.retailerId);
+    if (retailer?.location) {
+      order.retailerLocation = retailer.location;
+    }
+  }
+
+  await order.save();
+}
+
+
 function safeNumber(val, def = 0) {
   const n = Number(val);
   return Number.isFinite(n) ? n : def;
