@@ -245,6 +245,7 @@ const crypto = require("crypto");
             status: "paid",
             statusHistory: [{ status: "paid", time: Date.now() }]
           });
+          await markOrderPaid(o._id, paymentId);
 
           createdOrders.push(o);
         }
@@ -283,6 +284,7 @@ const crypto = require("crypto");
           status: "paid",
           statusHistory: [{ status: "paid", time: Date.now() }]
         });
+        await markOrderPaid(o._id, paymentId);
 
         createdOrders.push(o);
       }
