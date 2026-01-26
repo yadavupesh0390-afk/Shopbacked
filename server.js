@@ -1577,65 +1577,82 @@ res.json({ success:true, orders });
 app.get("/api/orders/delivery/:id", async (req, res) => {
   try {
     const now = Date.now();
+    const deliveryBoyId = req.params.id;
 
-    const boy = await DeliveryProfile.findOne({
-      deliveryBoyId: req.params.id
-    });
+    /* ================= DELIVERY BOY PROFILE ================= */
+    const boy = await DeliveryProfile.findOne({ deliveryBoyId });
 
-    if (!boy || !boy.location) {
+    if (
+      !boy ||
+      !boy.location ||
+      !Number.isFinite(boy.location.lat) ||
+      !Number.isFinite(boy.location.lng)
+    ) {
       return res.json({ success: true, orders: [] });
     }
 
+    /* ================= FETCH ORDERS ================= */
     const orders = await Order.find({
-      $or: [
-        // ✅ Orders assigned to this delivery boy
-        { deliveryBoyId: req.params.id },
+      $and: [
+        {
+          $or: [
+            // ✅ Orders assigned to this delivery boy
+            { deliveryBoyId },
 
-        // ✅ Unassigned PAID orders only
-        {
-          deliveryBoyId: { $exists: false },
-          status: "paid"
-        }
-      ],
-      $or: [
-        { status: { $ne: "delivered" } },
-        {
-          status: "delivered",
-          statusHistory: {
-            $elemMatch: {
-              status: "delivered",
-              time: { $gte: now - TEN_MIN }
+            // ✅ Unassigned PAID orders
+            {
+              deliveryBoyId: { $exists: false },
+              status: "paid"
             }
-          }
+          ]
+        },
+        {
+          $or: [
+            // ❌ Not delivered yet
+            { status: { $ne: "delivered" } },
+
+            // ✅ Recently delivered (10 min)
+            {
+              status: "delivered",
+              statusHistory: {
+                $elemMatch: {
+                  status: "delivered",
+                  time: { $gte: now - TEN_MIN }
+                }
+              }
+            }
+          ]
         }
       ]
     }).sort({ createdAt: -1 });
 
+    /* ================= FILTER LOGIC ================= */
     const filtered = [];
 
     for (const o of orders) {
 
-      // 🔹 Assigned order → always show
-      if (o.deliveryBoyId === req.params.id) {
+      /* 🔹 ASSIGNED ORDER → ALWAYS SHOW (FIXED ObjectId BUG) */
+      if (o.deliveryBoyId?.toString() === deliveryBoyId) {
         filtered.push(o);
         continue;
       }
 
-      // 🔹 Only PAID + distance check
+      /* 🔹 UNASSIGNED + PAID + 20KM CHECK */
       if (
         o.status === "paid" &&
-        o.wholesalerLocation?.lat &&
-        o.wholesalerLocation?.lng &&
+        Number.isFinite(o.wholesalerLocation?.lat) &&
+        Number.isFinite(o.wholesalerLocation?.lng) &&
         isWithin20Km(boy.location, o.wholesalerLocation)
       ) {
         filtered.push(o);
       }
     }
 
+    /* ================= RESPONSE ================= */
     res.json({ success: true, orders: filtered });
 
   } catch (err) {
-    console.error("Delivery orders error:", err);
+    console.error("❌ Delivery orders error:", err);
     res.status(500).json({ success: false });
   }
 });
