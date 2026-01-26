@@ -165,8 +165,6 @@ const crypto = require("crypto");
         return Number.isFinite(n) ? n : d;
       };
 
-      let order;
-
       /* ================= VERIFY SIGNATURE ================= */
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       const signature = req.headers["x-razorpay-signature"];
@@ -188,16 +186,21 @@ const crypto = require("crypto");
         return res.json({ success: true });
       }
 
+      /* ================= PAYMENT DATA ================= */
       const payment = event.payload.payment.entity;
       const notes = payment.notes || {};
       const paymentId = payment.id;
 
+      console.log("PAYMENT ID:", paymentId);
+
       /* ================= DUPLICATE CHECK ================= */
-      const existingOrder = await Order.findOne({ paymentId });
-      if (existingOrder) {
+      const exists = await Order.findOne({ paymentId });
+      if (exists) {
         console.log("⚠️ Duplicate webhook ignored:", paymentId);
         return res.json({ success: true });
       }
+
+      const createdOrders = [];
 
       /* ================= CART PAYMENT ================= */
       if (notes.products) {
@@ -206,12 +209,12 @@ const crypto = require("crypto");
         try {
           products = JSON.parse(notes.products);
         } catch (e) {
-          console.error("❌ PRODUCT JSON ERROR");
+          console.error("❌ Product JSON error");
           return res.json({ success: false });
         }
 
         for (const p of products) {
-          order = await Order.create({
+          const o = await Order.create({
             paymentId,
 
             productId: p.productId,
@@ -242,11 +245,14 @@ const crypto = require("crypto");
             status: "paid",
             statusHistory: [{ status: "paid", time: Date.now() }]
           });
+
+          createdOrders.push(o);
         }
       }
+
       /* ================= DIRECT BUY ================= */
       else {
-        order = await Order.create({
+        const o = await Order.create({
           paymentId,
 
           productId: notes.productId,
@@ -277,130 +283,126 @@ const crypto = require("crypto");
           status: "paid",
           statusHistory: [{ status: "paid", time: Date.now() }]
         });
+
+        createdOrders.push(o);
       }
 
-      /* ================= PUSH NOTIFICATION (WHOLESALER) ================= */
-      if (notes.wholesalerId) {
-  const wholesalerUser = await User.findById(notes.wholesalerId);
+      /* ================= NOTIFICATIONS ================= */
+      for (const order of createdOrders) {
 
-  if (wholesalerUser?.fcmToken) {
-    try {
-      await admin.messaging().send({
-        token: wholesalerUser.fcmToken,
+        /* ===== WHOLESALER ===== */
+        if (order.wholesalerId) {
+          const wholesalerUser = await User.findById(order.wholesalerId);
 
-        notification: {
-          title: "🌐 BazaarSathi",
-          body: "नया ऑर्डर मिला है"
-        },
-
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "orders",
-            sound: "default"
+          if (wholesalerUser?.fcmToken) {
+            try {
+              await admin.messaging().send({
+                token: wholesalerUser.fcmToken,
+                notification: {
+                  title: "🌐 BazaarSathi",
+                  body: `₹${order.price} का नया ऑर्डर मिला है`
+                },
+                android: {
+                  priority: "high",
+                  notification: { channelId: "orders", sound: "default" }
+                },
+                webpush: {
+                  fcmOptions: {
+                    link: "https://bazaarsathi.vercel.app/wholesaler.html"
+                  }
+                },
+                data: {
+                  orderId: order._id.toString(),
+                  paymentId
+                }
+              });
+              console.log("✅ Wholesaler notified:", order._id);
+            } catch (err) {
+              console.error("❌ WHOLESALER FCM:", err.code);
+              await handleFCMError(err, wholesalerUser._id);
+            }
           }
-        },
-
-        // 🌐 WEB SUPPORT
-        webpush: {
-          fcmOptions: {
-            link: "https://bazaarsathi.vercel.app/wholesaler.html"
-          }
-        },
-
-        data: {
-          orderId: order._id.toString(),
-          paymentId: paymentId,
-          click_action: "OPEN_DASHBOARD"
         }
-      });
 
-      console.log("✅ Wholesaler notification sent");
+        /* ===== DELIVERY BOYS ===== */
+        if (
+          order.wholesalerLocation &&
+          Number.isFinite(order.wholesalerLocation.lat) &&
+          Number.isFinite(order.wholesalerLocation.lng)
+        ) {
+          const deliveryProfiles = await DeliveryProfile.find({
+            location: { $exists: true }
+          });
+
+          for (const boy of deliveryProfiles) {
+            if (
+              !boy.location ||
+              !Number.isFinite(boy.location.lat) ||
+              !Number.isFinite(boy.location.lng)
+            ) continue;
+
+            const km = safeDistance(
+              boy.location.lat,
+              boy.location.lng,
+              order.wholesalerLocation.lat,
+              order.wholesalerLocation.lng
+            );
+
+            if (km === null || km > 20) continue;
+
+            const deliveryUser = await User.findById(boy.deliveryBoyId);
+            if (!deliveryUser?.fcmToken) continue;
+
+            try {
+              await admin.messaging().send({
+                token: deliveryUser.fcmToken,
+                notification: {
+                  title: "🌐 BazaarSathi",
+                  body: "📦 नया ऑर्डर आया है"
+                },
+                android: {
+                  priority: "high",
+                  notification: { channelId: "orders", sound: "default" }
+                },
+                data: {
+                  orderId: order._id.toString(),
+                  status: "paid"
+                }
+              });
+              console.log("✅ Delivery notified:", boy.deliveryBoyId);
+            } catch (err) {
+              console.error("❌ DELIVERY FCM:", err.code);
+              await handleFCMError(err, deliveryUser._id);
+            }
+          }
+        }
+      }
+
+      /* ================= SMS (RETAILER) ================= */
+      if (notes.retailerMobile && createdOrders[0]) {
+        const to = notes.retailerMobile.startsWith("+")
+          ? notes.retailerMobile
+          : "+91" + notes.retailerMobile;
+
+        client.messages.create({
+          body: `Payment successful ₹${createdOrders[0].totalAmount}. Order ID: ${createdOrders[0]._id}`,
+          from: process.env.TWILIO_NUMBER,
+          to
+        });
+      }
+
+      console.log("✅ ALL ORDERS CREATED:", createdOrders.length);
+      res.json({ success: true });
 
     } catch (err) {
-      console.error("❌ WHOLESALER FCM ERROR:", err.code || err.message);
-      await handleFCMError(err, wholesalerUser._id);
+      console.error("❌ Webhook error:", err);
+      res.status(500).send("Webhook error");
     }
-
-  } else {
-    console.log("⚠️ Wholesaler FCM missing, skipping:", notes.wholesalerId);
   }
-}
+);
+        
+
       
-
-      /* ================= DELIVERY BOY NOTIFICATION ================= */
-      if (
-  order?.wholesalerLocation &&
-  Number.isFinite(order.wholesalerLocation.lat) &&
-  Number.isFinite(order.wholesalerLocation.lng)
-) {
-  const deliveryProfiles = await DeliveryProfile.find({
-    location: { $exists: true }
-  });
-
-  for (const boy of deliveryProfiles) {
-    if (
-      !boy.location ||
-      !Number.isFinite(boy.location.lat) ||
-      !Number.isFinite(boy.location.lng)
-    ) {
-      continue;
-    }
-
-    const distanceKm = safeDistance(
-      boy.location.lat,
-      boy.location.lng,
-      order.wholesalerLocation.lat,
-      order.wholesalerLocation.lng
-    );
-
-    if (!Number.isFinite(distanceKm) || distanceKm > 20) continue;
-
-    const deliveryUser = await User.findById(boy.deliveryBoyId);
-    if (!deliveryUser?.fcmToken) continue;
-
-    try {
-      await admin.messaging().send({
-        token: deliveryUser.fcmToken,
-
-        notification: {
-          title: "🌐 BazaarSathi",
-          body: "📦 नया ऑर्डर आया है"
-        },
-
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "orders",
-            sound: "default"
-          }
-        },
-
-        webpush: {
-          fcmOptions: {
-            link: "https://bazaarsathi.vercel.app/delivery.html"
-          }
-        },
-
-        data: {
-          orderId: order._id.toString(),
-          status: "paid",
-          click_action: "OPEN_ORDER"
-        }
-      });
-
-      console.log("✅ Delivery notified:", boy.deliveryBoyId, distanceKm, "km");
-
-    } catch (err) {
-      console.error(
-        "❌ DELIVERY FCM ERROR:",
-        boy.deliveryBoyId,
-        err.code || err.message
-      );
-      await handleFCMError(err, deliveryUser._id);
-    }
-  }
-}
   
   
       
