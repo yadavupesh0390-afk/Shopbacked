@@ -220,39 +220,44 @@ const crypto = require("crypto");
           return res.json({ success: false });
         }
 
+        const cartGroupId = "CART_" + paymentId;
+
         for (const p of products) {
-          const o = await Order.create({
-            paymentId,
+         const o = await Order.create({
+         paymentId,
+         cartGroupId,          // 🔥 SAME FOR ALL
+         isCartOrder: true,    // 🔥 FLAG
 
-            productId: p.productId,
-            productName: p.productName,
-            productImg: p.productImg || "",
-            price: safeNumber(p.price),
+    productId: p.productId,
+    productName: p.productName,
+    productImg: p.productImg || "",
+    price: safeNumber(p.price),
 
-            wholesalerId: p.wholesalerId,
-            wholesalerName: p.wholesalerName,
-            wholesalerMobile: p.wholesalerMobile,
-            wholesalerLocation: notes.wholesalerLocation || null,
+    wholesalerId: p.wholesalerId,
+    wholesalerName: p.wholesalerName,
+    wholesalerMobile: p.wholesalerMobile,
+    wholesalerLocation: notes.wholesalerLocation || null,
 
-            retailerId: notes.retailerId,
-            retailerName: notes.retailerName,
-            retailerMobile: notes.retailerMobile,
-            retailerLocation: notes.retailerLocation || null,
+    retailerId: notes.retailerId,
+    retailerName: notes.retailerName,
+    retailerMobile: notes.retailerMobile,
+    retailerLocation: notes.retailerLocation || null,
 
-            vehicleType: notes.vehicleType,
+    vehicleType: notes.vehicleType,
 
-            deliveryCharge: safeNumber(notes.deliveryCharge),
-            retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
-            wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
+    deliveryCharge: safeNumber(notes.deliveryCharge),
+    retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
+    wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
 
-            totalAmount:
-              safeNumber(p.price) +
-              safeNumber(notes.retailerDeliveryPay),
+    totalAmount:
+      safeNumber(p.price) +
+      safeNumber(notes.retailerDeliveryPay),
 
-            status: "paid",
-            statusHistory: [{ status: "paid", time: Date.now() }]
-          });
-          await markOrderPaid(o._id, paymentId);
+    status: "paid",
+    statusHistory: [{ status: "paid", time: Date.now() }]
+  });
+
+  await markOrderPaid(o._id, paymentId);
 
           createdOrders.push(o);
         }
