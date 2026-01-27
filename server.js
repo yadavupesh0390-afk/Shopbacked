@@ -90,7 +90,14 @@ wholesalerLocation: {
 lat: Number,
 lng: Number
 },
-
+cartGroupId: {
+  type: String,
+  index: true
+},
+isCartOrder: {
+  type: Boolean,
+  default: false
+},
 productId: String,
 productName: String,
 productImg: String,
