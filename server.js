@@ -433,24 +433,30 @@ async function markOrderPaid(orderId, paymentId) {
   order.status = "paid";
   order.paymentId = paymentId;
 
-  // 🔥 FORCE location save
-  if (!order.wholesalerLocation) {
+  // 🔥 WHOLESALER LOCATION FORCE
+  if (
+    !order.wholesalerLocation ||
+    !Number.isFinite(order.wholesalerLocation.lat)
+  ) {
     const wholesaler = await User.findById(order.wholesalerId);
-    if (wholesaler?.location) {
+    if (wholesaler?.location?.lat) {
       order.wholesalerLocation = wholesaler.location;
     }
   }
 
-  if (!order.retailerLocation) {
+  // 🔥 RETAILER LOCATION FORCE
+  if (
+    !order.retailerLocation ||
+    !Number.isFinite(order.retailerLocation.lat)
+  ) {
     const retailer = await User.findById(order.retailerId);
-    if (retailer?.location) {
+    if (retailer?.location?.lat) {
       order.retailerLocation = retailer.location;
     }
   }
 
   await order.save();
 }
-
 
 function safeNumber(val, def = 0) {
   const n = Number(val);
