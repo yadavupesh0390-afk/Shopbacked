@@ -1155,41 +1155,82 @@ app.get("/api/wholesalers/profile/:id", async (req, res) => {
 // Retailer profile
 app.post("/api/retailers/saveProfile", async (req, res) => {
   try {
-    const { retailerId, name, mobile, address, location } = req.body;
+    const { retailerId, name, mobile, address, location, adminOverride } = req.body;
 
-    if (!retailerId || !mobile) {
-      return res.status(400).json({
-        success:false,
-        message:"Retailer ID and mobile required"
-      });
+    if (!retailerId) {
+      return res.status(400).json({ success:false, message:"Retailer ID required" });
     }
 
-    const updateData = {};
-
-    if (name && name.trim()) updateData.name = name.trim();
-    if (mobile && mobile.trim()) updateData.mobile = mobile.trim();
-    if (address && address.trim()) updateData.shop_current_location = address.trim();
-
-    if (
-      location &&
-      Number.isFinite(location.lat) &&
-      Number.isFinite(location.lng)
-    ) {
-      updateData.location = {
-        lat: Number(location.lat),
-        lng: Number(location.lng)
-      };
+    const user = await User.findById(retailerId);
+    if (!user) {
+      return res.status(404).json({ success:false, message:"User not found" });
     }
 
-    const user = await User.findByIdAndUpdate(
-      retailerId,
-      { $set: updateData },
-      { new:true }
-    );
+    const now = Date.now();
+    const TEN_HOURS = 10 * 60 * 60 * 1000;
 
-    if(!user){
-      return res.status(404).json({ success:false });
+    // ================= LOCATION LOGIC =================
+    if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+
+      const meta = user.locationMeta || {};
+      const firstSetAt = meta.firstSetAt ? new Date(meta.firstSetAt).getTime() : null;
+
+      // 🔒 CASE 1: Already locked
+      if (meta.locked) {
+
+        // ❌ admin override already used
+        if (!adminOverride || meta.adminOverrideUsed) {
+          return res.json({
+            success:false,
+            message:"Location locked. Admin permission required."
+          });
+        }
+
+        // ✅ admin override (ONE TIME)
+        user.location = location;
+        user.locationMeta = {
+          ...meta,
+          lastUpdatedAt: new Date(),
+          locked: true,
+          adminOverrideUsed: true
+        };
+
+      }
+      // 🔓 CASE 2: First time OR within 10 hours
+      else {
+
+        // First time set
+        if (!firstSetAt) {
+          user.location = location;
+          user.locationMeta = {
+            firstSetAt: new Date(),
+            lastUpdatedAt: new Date(),
+            locked: false,
+            adminOverrideUsed: false
+          };
+        }
+        // Within 10 hours
+        else if (now - firstSetAt <= TEN_HOURS) {
+          user.location = location;
+          user.locationMeta.lastUpdatedAt = new Date();
+        }
+        // ❌ Time expired → auto lock
+        else {
+          user.locationMeta.locked = true;
+          return res.json({
+            success:false,
+            message:"⏱️ Location locked after 10 hours"
+          });
+        }
+      }
     }
+
+    // ================= OTHER PROFILE FIELDS =================
+    if (name) user.name = name.trim();
+    if (mobile) user.mobile = mobile.trim();
+    if (address) user.shop_current_location = address.trim();
+
+    await user.save();
 
     res.json({
       success:true,
@@ -1197,12 +1238,13 @@ app.post("/api/retailers/saveProfile", async (req, res) => {
         name: user.name,
         mobile: user.mobile,
         address: user.shop_current_location,
-        location: user.location || null
+        location: user.location,
+        locationMeta: user.locationMeta
       }
     });
 
   } catch(err){
-    console.error(err);
+    console.error("Retailer save error:", err);
     res.status(500).json({ success:false });
   }
 });
