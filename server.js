@@ -1063,66 +1063,96 @@ app.delete("/api/products/:id", async (req, res) => {
 // Wholesaler profile
 app.post("/api/wholesalers/saveProfile", async (req, res) => {
   try {
-    const {
-      wholesalerId,
-      shopName,
-      mobile,
-      address,
-      location        // ✅ NEW (lat, lng)
-    } = req.body;
+    const { wholesalerId, name, mobile, address, location, adminOverride } = req.body;
 
-    if (!wholesalerId || !mobile) {
-      return res.status(400).json({
-        success: false,
-        msg: "Missing info"
-      });
+    if (!wholesalerId) {
+      return res.status(400).json({ success:false, message:"Wholesaler ID required" });
     }
 
-    // 🔹 Prepare update object safely
-    const updateData = {
-      name: shopName,
-      mobile,
-      shop_current_location: address
-    };
-
-    // ✅ location optional hai
-    if (
-      location &&
-      typeof location.lat === "number" &&
-      typeof location.lng === "number"
-    ) {
-      updateData.location = {
-        lat: location.lat,
-        lng: location.lng
-      };
-    }
-
-    const user = await User.findByIdAndUpdate(
-      wholesalerId,
-      updateData,
-      { new: true }
-    );
-
+    const user = await User.findById(wholesalerId);
     if (!user) {
-      return res.json({
-        success: false,
-        msg: "User not found"
-      });
+      return res.status(404).json({ success:false, message:"User not found" });
     }
+
+    const now = Date.now();
+    const TEN_HOURS = 10 * 60 * 60 * 1000;
+
+    // ================= LOCATION LOGIC =================
+    if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+
+      const meta = user.locationMeta || {};
+      const firstSetAt = meta.firstSetAt ? new Date(meta.firstSetAt).getTime() : null;
+
+      // 🔒 Already locked
+      if (meta.locked) {
+
+        if (!adminOverride || meta.adminOverrideUsed) {
+          return res.json({
+            success:false,
+            message:"Location locked. Admin permission required."
+          });
+        }
+
+        // ✅ One-time admin override
+        user.location = location;
+        user.locationMeta = {
+          ...meta,
+          lastUpdatedAt: new Date(),
+          locked: true,
+          adminOverrideUsed: true
+        };
+
+      }
+      // 🔓 First time OR within 10 hours
+      else {
+
+        if (!firstSetAt) {
+          // First time set
+          user.location = location;
+          user.locationMeta = {
+            firstSetAt: new Date(),
+            lastUpdatedAt: new Date(),
+            locked: false,
+            adminOverrideUsed: false
+          };
+        }
+        else if (now - firstSetAt <= TEN_HOURS) {
+          // Update allowed
+          user.location = location;
+          user.locationMeta.lastUpdatedAt = new Date();
+        }
+        else {
+          // ⏱️ Time expired → lock
+          user.locationMeta.locked = true;
+          return res.json({
+            success:false,
+            message:"⏱️ Location locked after 10 hours"
+          });
+        }
+      }
+    }
+
+    // ================= OTHER PROFILE FIELDS =================
+    if (name) user.name = name.trim();
+    if (mobile) user.mobile = mobile.trim();
+    if (address) user.shop_current_location = address.trim();
+
+    await user.save();
 
     res.json({
-      success: true,
-      profile: {
-        shopName: user.name,
+      success:true,
+      profile:{
+        name: user.name,
         mobile: user.mobile,
         address: user.shop_current_location,
-        location: user.location || null   // ✅ send back
+        location: user.location,
+        locationMeta: user.locationMeta
       }
     });
 
-  } catch (err) {
-    console.error("Save wholesaler profile error:", err);
-    res.status(500).json({ success: false });
+  } catch(err){
+    console.error("Wholesaler save error:", err);
+    res.status(500).json({ success:false });
   }
 });
 
