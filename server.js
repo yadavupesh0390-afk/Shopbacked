@@ -54,7 +54,13 @@ shop_current_location: String,
 location: {
   lat: Number,
   lng: Number
-},  
+},
+locationMeta: {
+  firstSetAt: Date,          // first time location set
+  lastUpdatedAt: Date,       // last update
+  locked: { type: Boolean, default: false },
+  adminOverrideUsed: { type: Boolean, default: false }
+},
 vehicle: String,
 vehicle_model: String,
 vehicle_number: String
