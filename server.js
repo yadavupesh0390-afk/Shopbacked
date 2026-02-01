@@ -1282,7 +1282,9 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
-    if(!user) return res.json({ success:false, msg:"User not found" });
+    if (!user) {
+      return res.json({ success:false, msg:"User not found" });
+    }
 
     res.json({
       success: true,
@@ -1290,13 +1292,19 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
         name: user.name || "",
         mobile: user.mobile || "",
         address: user.shop_current_location || "",
-        location: user.location || null   // 🔹 Important
+        location: user.location || null,
+
+        // 🔥 VERY IMPORTANT
+        locationMeta: {
+          firstSetAt: user.locationMeta?.firstSetAt || null,
+          locked: user.locationMeta?.locked || false
+        }
       }
     });
 
-  } catch(err) {
+  } catch (err) {
     console.error("Get retailer profile error:", err);
-    res.status(500).json({ success: false, msg: "Server error" });
+    res.status(500).json({ success:false });
   }
 });
 
