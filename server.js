@@ -1199,37 +1199,38 @@ app.post("/api/retailers/saveProfile", async (req, res) => {
     const now = Date.now();
     const TEN_HOURS = 10 * 60 * 60 * 1000;
 
-    // ================= LOCATION LOGIC =================
-    if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+    /* ================= LOCATION LOGIC ================= */
+    if (
+      location &&
+      Number.isFinite(location.lat) &&
+      Number.isFinite(location.lng)
+    ) {
 
       const meta = user.locationMeta || {};
-      const firstSetAt = meta.firstSetAt ? new Date(meta.firstSetAt).getTime() : null;
+      const firstSetAt = meta.firstSetAt
+        ? new Date(meta.firstSetAt).getTime()
+        : null;
 
       // 🔒 CASE 1: Already locked
       if (meta.locked) {
 
-        // ❌ admin override already used
-        if (!adminOverride || meta.adminOverrideUsed) {
-          return res.json({
-            success:false,
-            message:"Location locked. Admin permission required."
-          });
+        // ✅ admin override (one time)
+        if (adminOverride && !meta.adminOverrideUsed) {
+          user.location = location;
+          user.locationMeta = {
+            ...meta,
+            lastUpdatedAt: new Date(),
+            locked: true,
+            adminOverrideUsed: true
+          };
         }
-
-        // ✅ admin override (ONE TIME)
-        user.location = location;
-        user.locationMeta = {
-          ...meta,
-          lastUpdatedAt: new Date(),
-          locked: true,
-          adminOverrideUsed: true
-        };
-
+        // ❗ locked + no override → IGNORE location silently
       }
+
       // 🔓 CASE 2: First time OR within 10 hours
       else {
 
-        // First time set
+        // First time
         if (!firstSetAt) {
           user.location = location;
           user.locationMeta = {
@@ -1239,23 +1240,22 @@ app.post("/api/retailers/saveProfile", async (req, res) => {
             adminOverrideUsed: false
           };
         }
+
         // Within 10 hours
         else if (now - firstSetAt <= TEN_HOURS) {
           user.location = location;
           user.locationMeta.lastUpdatedAt = new Date();
         }
-        // ❌ Time expired → auto lock
+
+        // ⏱ Time expired → auto lock (BUT DO NOT FAIL REQUEST)
         else {
           user.locationMeta.locked = true;
-          return res.json({
-            success:false,
-            message:"⏱️ Location locked after 10 hours"
-          });
+          // ❗ location update skipped, profile save allowed
         }
       }
     }
 
-    // ================= OTHER PROFILE FIELDS =================
+    /* ================= OTHER PROFILE FIELDS ================= */
     if (name) user.name = name.trim();
     if (mobile) user.mobile = mobile.trim();
     if (address) user.shop_current_location = address.trim();
