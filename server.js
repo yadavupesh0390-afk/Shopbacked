@@ -1117,7 +1117,7 @@ app.delete("/api/products/:id", async (req, res) => {
 // Wholesaler profile
 app.post("/api/wholesalers/saveProfile", async (req, res) => {
   try {
-    const { wholesalerId, name, mobile, address, location, adminOverride } = req.body;
+    const { wholesalerId, name, shopName, mobile, address, location, adminOverride } = req.body;
 
     if (!wholesalerId) {
       return res.status(400).json({ success:false, message:"Wholesaler ID required" });
@@ -1137,31 +1137,20 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
       const meta = user.locationMeta || {};
       const firstSetAt = meta.firstSetAt ? new Date(meta.firstSetAt).getTime() : null;
 
-      // 🔒 Already locked
       if (meta.locked) {
-
-        if (!adminOverride || meta.adminOverrideUsed) {
-          return res.json({
-            success:false,
-            message:"Location locked. Admin permission required."
-          });
+        // 🔒 Locked
+        if (adminOverride && !meta.adminOverrideUsed) {
+          user.location = location;
+          user.locationMeta = {
+            ...meta,
+            lastUpdatedAt: new Date(),
+            locked: true,
+            adminOverrideUsed: true
+          };
         }
-
-        // ✅ One-time admin override
-        user.location = location;
-        user.locationMeta = {
-          ...meta,
-          lastUpdatedAt: new Date(),
-          locked: true,
-          adminOverrideUsed: true
-        };
-
-      }
-      // 🔓 First time OR within 10 hours
-      else {
-
+      } else {
+        // 🔓 Not locked
         if (!firstSetAt) {
-          // First time set
           user.location = location;
           user.locationMeta = {
             firstSetAt: new Date(),
@@ -1171,23 +1160,18 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
           };
         }
         else if (now - firstSetAt <= TEN_HOURS) {
-          // Update allowed
           user.location = location;
           user.locationMeta.lastUpdatedAt = new Date();
         }
         else {
-          // ⏱️ Time expired → lock
+          // ⏱️ Time expired → lock only
           user.locationMeta.locked = true;
-          return res.json({
-            success:false,
-            message:"⏱️ Location locked after 10 hours"
-          });
         }
       }
     }
 
-    // ================= OTHER PROFILE FIELDS =================
-    if (name) user.name = name.trim();
+    // ================= PROFILE FIELDS =================
+    if (shopName || name) user.name = (shopName || name).trim();
     if (mobile) user.mobile = mobile.trim();
     if (address) user.shop_current_location = address.trim();
 
@@ -1200,7 +1184,8 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
         mobile: user.mobile,
         address: user.shop_current_location,
         location: user.location,
-        locationMeta: user.locationMeta
+        locationMeta: user.locationMeta,
+        canRequestAdminHelp: user.locationMeta?.locked === true
       }
     });
 
@@ -1209,7 +1194,6 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
     res.status(500).json({ success:false });
   }
 });
-
 
 
 // Retailer profile
