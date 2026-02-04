@@ -1653,7 +1653,45 @@ time: { $gte: now - TEN_MIN }
 
 res.json({ success:true, orders });
 });
+// ✅ RETAILER LOCATION FIX ROUTE (FINAL)
+app.put("/api/retailers/location", async (req, res) => {
+  try {
+    const { retailerId, latitude, longitude } = req.body;
 
+    if (!retailerId || latitude == null || longitude == null) {
+      return res.status(400).json({
+        success: false,
+        message: "RetailerId / latitude / longitude missing"
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      retailerId,
+      {
+        $set: {
+          location: {
+            lat: Number(latitude),
+            lng: Number(longitude)
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false });
+    }
+
+    res.json({
+      success: true,
+      location: user.location
+    });
+
+  } catch (err) {
+    console.error("❌ Retailer location error:", err);
+    res.status(500).json({ success: false });
+  }
+});
 /* ===== WHOLESALER ===== */
 app.get("/api/orders/wholesaler/:wid", async (req,res)=>{
 const now = Date.now();
