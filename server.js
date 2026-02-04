@@ -1159,26 +1159,36 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
 app.get("/api/wholesalers/profile/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
+    if (!user) return res.json({ success:false });
 
-    if (!user) {
-      return res.json({ success: false });
+    // 🔥 AUTO LOCK CHECK
+    const lockResult = checkLocationLock(user.locationMeta);
+
+    if (lockResult.locked && !user.locationMeta?.locked) {
+      user.locationMeta.locked = true;
+      await user.save();
     }
 
     res.json({
       success: true,
       profile: {
-        shopName: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location,
+        shopName: user.name || "",
+        mobile: user.mobile || "",
+        address: user.shop_current_location || "",
+        location: user.location || null,
 
-        // ✅ NEW FIELD
-        location: user.location || null
+        // 🔥 THIS IS KEY
+        locationMeta: {
+          firstSetAt: user.locationMeta?.firstSetAt || null,
+          locked: user.locationMeta?.locked || false,
+          canRequestAdminHelp: user.locationMeta?.locked === true
+        }
       }
     });
 
   } catch (err) {
     console.error("Get wholesaler profile error:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success:false });
   }
 });
 
