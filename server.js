@@ -935,17 +935,40 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-app.get("/api/products/wholesaler/:id", async (req,res)=>{
-try{
-const id = req.params.id.trim();
-const products = await Product.find({
-wholesalerId: { $regex: "^"+id, $options:"i" }
-}).sort({createdAt:-1});
-res.json({success:true, products});
-}catch(err){
-console.log(err);
-res.json({success:false});
-}
+app.get("/api/wholesalers/profile/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.json({ success:false });
+
+    // 🔥 AUTO LOCK CHECK
+    const lockResult = checkLocationLock(user.locationMeta);
+
+    if (lockResult.locked && !user.locationMeta?.locked) {
+      user.locationMeta.locked = true;
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        shopName: user.name || "",
+        mobile: user.mobile || "",
+        address: user.shop_current_location || "",
+        location: user.location || null,
+
+        // 🔥 THIS IS KEY
+        locationMeta: {
+          firstSetAt: user.locationMeta?.firstSetAt || null,
+          locked: user.locationMeta?.locked || false,
+          canRequestAdminHelp: user.locationMeta?.locked === true
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error("Get wholesaler profile error:", err);
+    res.status(500).json({ success:false });
+  }
 });
 // GET PRODUCT BY ID
 app.get("/api/products/:id", async (req, res) => {
