@@ -596,7 +596,15 @@ function calculateDeliveryCharge({
   };
 }
 
+function checkLocationLock(meta) {
+  if (!meta?.firstSetAt) return { locked:false };
 
+  const TEN_HOURS = 10 * 60 * 60 * 1000;
+  const expired =
+    Date.now() - new Date(meta.firstSetAt).getTime() > TEN_HOURS;
+
+  return { locked: expired };
+}
 
 app.post("/api/delivery/calculate", async (req, res) => {
   try {
