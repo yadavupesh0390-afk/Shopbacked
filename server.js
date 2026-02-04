@@ -1198,57 +1198,68 @@ app.post("/api/wholesalers/saveProfile", async (req, res) => {
 
 // Retailer profile
 app.post("/api/retailers/saveProfile", async (req, res) => {
-  try {
-    const { retailerId, name, mobile, address, location } = req.body;
+  try {
+    const { retailerId, name, mobile, address, location } = req.body;
 
-    if (!retailerId || !mobile) {
-      return res.status(400).json({
-        success:false,
-        message:"Retailer ID and mobile required"
-      });
-    }
+    if (!retailerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Retailer ID required"
+      });
+    }
 
-    const updateData = {};
+    const updateData = {};
 
-    if (name && name.trim()) updateData.name = name.trim();
-    if (mobile && mobile.trim()) updateData.mobile = mobile.trim();
-    if (address && address.trim()) updateData.shop_current_location = address.trim();
+    // ✅ Sirf aaye hue fields hi update honge
+    if (name && name.trim()) updateData.name = name.trim();
+    if (mobile && mobile.trim()) updateData.mobile = mobile.trim();
+    if (address && address.trim())
+      updateData.shop_current_location = address.trim();
 
-    if (
-      location &&
-      Number.isFinite(location.lat) &&
-      Number.isFinite(location.lng)
-    ) {
-      updateData.location = {
-        lat: Number(location.lat),
-        lng: Number(location.lng)
-      };
-    }
+    // ✅ Location-only update allowed
+    if (
+      location &&
+      Number.isFinite(location.lat) &&
+      Number.isFinite(location.lng)
+    ) {
+      updateData.location = {
+        lat: Number(location.lat),
+        lng: Number(location.lng)
+      };
+    }
 
-    const user = await User.findByIdAndUpdate(
-      retailerId,
-      { $set: updateData },
-      { new:true }
-    );
+    // ❌ Kuch bhi update nahi aaya
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No data to update"
+      });
+    }
 
-    if(!user){
-      return res.status(404).json({ success:false });
-    }
+    const user = await User.findByIdAndUpdate(
+      retailerId,
+      { $set: updateData },
+      { new: true }
+    );
 
-    res.json({
-      success:true,
-      profile:{
-        name: user.name,
-        mobile: user.mobile,
-        address: user.shop_current_location,
-        location: user.location || null
-      }
-    });
+    if (!user) {
+      return res.status(404).json({ success: false });
+    }
 
-  } catch(err){
-    console.error(err);
-    res.status(500).json({ success:false });
-  }
+    res.json({
+      success: true,
+      profile: {
+        name: user.name,
+        mobile: user.mobile,
+        address: user.shop_current_location,
+        location: user.location || null
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ saveProfile error:", err);
+    res.status(500).json({ success: false });
+  }
 });
 app.get("/api/retailers/profile/:id", async (req, res) => {
   try {
