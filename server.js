@@ -802,7 +802,19 @@ res.status(500).json({ success: false });
 
 
 
+app.post("/api/admin/unlock-location/:uid", async (req,res)=>{
+  const user = await User.findById(req.params.uid);
+  if(!user) return res.json({ success:false });
 
+  user.locationMeta = {
+    firstSetAt: new Date(),
+    locked: false,
+    adminOverrideUsed: true
+  };
+
+  await user.save();
+  res.json({ success:true });
+});
 
 
 app.post("/api/delivery/calculate", async (req, res) => {
