@@ -270,42 +270,62 @@ const crypto = require("crypto");
       }
 
       /* ================= DIRECT BUY ================= */
-      else {
-        const o = await Order.create({
-          paymentId,
+else {
 
-          productId: notes.productId,
-          productName: notes.productName,
-          productImg: notes.productImg || "",
-          price: safeNumber(notes.price),
+  // 🔍 FETCH REAL DATA FROM DB
+  const product = await Product.findById(notes.productId);
+  const retailer = await User.findById(notes.retailerId);
+  const wholesaler = await User.findById(notes.wholesalerId);
 
-          wholesalerId: notes.wholesalerId,
-          wholesalerName: notes.wholesalerName,
-          wholesalerMobile: notes.wholesalerMobile,
-          wholesalerLocation: notes.wholesalerLocation || null,
+  if (!product || !retailer || !wholesaler) {
+    console.error("❌ Missing DB data", {
+      product: !!product,
+      retailer: !!retailer,
+      wholesaler: !!wholesaler
+    });
+    return res.json({ success: false });
+  }
 
-          retailerId: notes.retailerId,
-          retailerName: notes.retailerName,
-          retailerMobile: notes.retailerMobile,
-          retailerLocation: notes.retailerLocation || null,
+  const o = await Order.create({
+    paymentId,
 
-          vehicleType: notes.vehicleType,
+    /* ===== PRODUCT ===== */
+    productId: product._id,
+    productName: product.productName,
+    productImg: product.images?.[0] || "",
+    price: safeNumber(product.price),
 
-          deliveryCharge: safeNumber(notes.deliveryCharge),
-          retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
-          wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
+    /* ===== WHOLESALER ===== */
+    wholesalerId: wholesaler._id,
+    wholesalerName: wholesaler.name,
+    wholesalerMobile: wholesaler.mobile,
+    wholesalerLocation: wholesaler.location || null,
 
-          totalAmount:
-            safeNumber(notes.price) +
-            safeNumber(notes.retailerDeliveryPay),
+    /* ===== RETAILER ===== */
+    retailerId: retailer._id,
+    retailerName: retailer.name,
+    retailerMobile: retailer.mobile,
+    retailerLocation: retailer.location || null,
 
-          status: "paid",
-          statusHistory: [{ status: "paid", time: Date.now() }]
-        });
-        await markOrderPaid(o._id, paymentId);
+    /* ===== DELIVERY ===== */
+    vehicleType: notes.vehicleType,
 
-        createdOrders.push(o);
-      }
+    deliveryCharge: safeNumber(notes.deliveryCharge),
+    retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
+    wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
+
+    /* ===== TOTAL ===== */
+    totalAmount:
+      safeNumber(product.price) +
+      safeNumber(notes.retailerDeliveryPay),
+
+    status: "paid",
+    statusHistory: [{ status: "paid", time: Date.now() }]
+  });
+
+  await markOrderPaid(o._id, paymentId);
+  createdOrders.push(o);
+}
 
       /* ================= NOTIFICATIONS ================= */
       for (const order of createdOrders) {
