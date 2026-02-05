@@ -1313,7 +1313,61 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
   }
 });
 
+app.post("/api/orders/save", async (req, res) => {
+  try {
+    const {
+      retailerId,
+      wholesalerId,
+      productId,
+      productName,
+      productImage,
+      price,
+      deliveryCharge,
+      totalAmount,
+      vehicleType,
+      retailerLocation,
+      wholesalerLocation,
+      paymentId
+    } = req.body;
 
+    // ✅ BASIC VALIDATION
+    if (!retailerId || !wholesalerId || !productId || !paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields"
+      });
+    }
+
+    const order = await Order.create({
+      retailerId,
+      wholesalerId,
+      productId,
+      productName,
+      productImage: productImage || "",
+      price: Number(price),
+      deliveryCharge: Number(deliveryCharge || 0),
+      totalAmount: Number(totalAmount),
+      vehicleType,
+      retailerLocation,
+      wholesalerLocation,
+      paymentId,
+      paymentStatus: "paid",
+      orderStatus: "pending"
+    });
+
+    res.json({
+      success: true,
+      order
+    });
+
+  } catch (err) {
+    console.error("❌ Order save error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Order save failed"
+    });
+  }
+});
 
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
