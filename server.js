@@ -1318,24 +1318,35 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
   try {
-    const { amount, notes } = req.body;
+    const { amount, orderTempId } = req.body;
+
+    if (!amount || !orderTempId) {
+      return res.status(400).json({
+        success: false,
+        message: "amount or orderTempId missing"
+      });
+    }
 
     const order = await razorpay.orders.create({
-      amount: amount * 100,
+      amount: Math.round(amount * 100),
       currency: "INR",
       receipt: "rcpt_" + Date.now(),
-      notes
+
+      // ✅ VERY SMALL & SAFE (20KB limit fix)
+      notes: {
+        orderTempId: orderTempId
+      }
     });
 
     res.json({
       success: true,
       key: process.env.RAZORPAY_KEY_ID,
-      amount: order.amount,
-      order
+      orderId: order.id,
+      amount: order.amount
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ Razorpay order error:", err);
     res.status(500).json({ success: false });
   }
 });
