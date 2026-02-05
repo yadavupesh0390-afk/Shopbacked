@@ -1369,56 +1369,35 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
   try {
     const { amount, notes } = req.body;
 
-    // 1️⃣ Save full order info in DB
-    const orderDoc = await Order.create({  // <-- FIXED
-      amount,
-      notes,
-      status: "pending",
-      createdAt: new Date()
-    });
-
-    // 2️⃣ Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
       amount: amount * 100,
       currency: "INR",
       receipt: "rcpt_" + Date.now(),
+
+      // 🔥 LIGHTWEIGHT NOTES ONLY
       notes: {
-        type: notes.type,
-        productName: notes.productName,
-        price: notes.price
+        type: notes.type || "direct",
+        productId: notes.productId,
+        wholesalerId: notes.wholesalerId,
+        retailerId: notes.retailerId,
+        vehicleType: notes.vehicleType
       }
     });
 
     res.json({
       success: true,
       key: process.env.RAZORPAY_KEY_ID,
-      amount: razorpayOrder.amount,
-      order: razorpayOrder,
-      orderId: orderDoc._id
+      order: razorpayOrder
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-
-app.post("/api/orders/payment-success", async (req, res) => {
-  try {
-    const { orderId, razorpayPaymentId } = req.body;
-
-    await Order.findByIdAndUpdate(orderId, {   // <-- FIXED
-      status: "paid",
-      razorpayPaymentId
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
+    console.error("❌ Pay create error:", err);
     res.status(500).json({ success: false });
   }
 });
+
+
+
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
   try {
