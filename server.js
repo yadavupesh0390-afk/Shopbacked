@@ -1336,10 +1336,11 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
     });
 
     res.json({
-      success: true,
-      key: process.env.RAZORPAY_KEY_ID,
-      order: razorpayOrder
-    });
+  success: true,
+  key: process.env.RAZORPAY_KEY_ID,
+  orderId: razorpayOrder.id,
+  amount: razorpayOrder.amount
+});
 
   } catch (err) {
     console.error("❌ Pay create error:", err);
