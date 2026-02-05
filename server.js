@@ -1367,40 +1367,58 @@ app.post("/api/orders/save", async (req, res) => {
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
   try {
-    const { amount, orderTempId } = req.body;
+    const { amount, notes } = req.body;
 
-    if (!amount || !orderTempId) {
-      return res.status(400).json({
-        success: false,
-        message: "amount or orderTempId missing"
-      });
-    }
+    // 1️⃣ Save full order info in DB
+    const orderDoc = await Orders.create({
+      amount,
+      notes,          // Full info safe in DB
+      status: "pending",
+      createdAt: new Date()
+    });
 
-    const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100),
+    // 2️⃣ Create Razorpay order (notes small for 20 KB limit)
+    const razorpayOrder = await razorpay.orders.create({
+      amount: amount * 100,
       currency: "INR",
       receipt: "rcpt_" + Date.now(),
-
-      // ✅ VERY SMALL & SAFE (20KB limit fix)
       notes: {
-        orderTempId: orderTempId
+        type: notes.type,
+        productName: notes.productName,
+        price: notes.price
       }
     });
 
+    // 3️⃣ Respond to frontend
     res.json({
       success: true,
       key: process.env.RAZORPAY_KEY_ID,
-      orderId: order.id,
-      amount: order.amount
+      amount: razorpayOrder.amount,
+      order: razorpayOrder,
+      orderId: orderDoc._id // backend DB id
     });
 
   } catch (err) {
-    console.error("❌ Razorpay order error:", err);
-    res.status(500).json({ success: false });
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
+app.post("/api/orders/payment-success", async (req, res) => {
+  try {
+    const { orderId, razorpayPaymentId } = req.body;
 
+    await Orders.findByIdAndUpdate(orderId, {
+      status: "paid",
+      razorpayPaymentId
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
 /* ================= DELIVERY ================= */
 app.post("/api/orders/:id/delivery-accept", async (req,res)=>{
   try {
