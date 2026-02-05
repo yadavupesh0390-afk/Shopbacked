@@ -1208,56 +1208,77 @@ app.post("/api/retailers/saveProfile", async (req, res) => {
       });
     }
 
-    const updateData = {};
+    const user = await User.findById(retailerId);
+    if (!user) {
+      return res.status(404).json({ success: false });
+    }
 
-    // ✅ Sirf aaye hue fields hi update honge
-    if (name && name.trim()) updateData.name = name.trim();
-    if (mobile && mobile.trim()) updateData.mobile = mobile.trim();
-    if (address && address.trim())
-      updateData.shop_current_location = address.trim();
+    const TEN_HOURS = 10 * 60 * 60 * 1000;
+    const now = Date.now();
 
-    // ✅ Location-only update allowed
+    /* ================= LOCATION LOGIC ================= */
     if (
       location &&
       Number.isFinite(location.lat) &&
       Number.isFinite(location.lng)
     ) {
-      updateData.location = {
-        lat: Number(location.lat),
-        lng: Number(location.lng)
-      };
+
+      if (!user.locationMeta?.firstSetAt) {
+        // 🟢 FIRST TIME LOCATION
+        user.location = {
+          lat: Number(location.lat),
+          lng: Number(location.lng)
+        };
+
+        user.locationMeta = {
+          firstSetAt: new Date(),
+          lastUpdatedAt: new Date(),
+          locked: false
+        };
+
+      } else {
+        const firstSet =
+          new Date(user.locationMeta.firstSetAt).getTime();
+
+        // ⏳ 10 hours ke andar update allowed
+        if (now - firstSet <= TEN_HOURS) {
+          user.location = {
+            lat: Number(location.lat),
+            lng: Number(location.lng)
+          };
+          user.locationMeta.lastUpdatedAt = new Date();
+        } else {
+          // 🔒 LOCK
+          user.locationMeta.locked = true;
+        }
+      }
     }
 
-    // ❌ Kuch bhi update nahi aaya
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No data to update"
-      });
-    }
+    /* ================= OTHER FIELDS ================= */
+    if (name && name.trim()) user.name = name.trim();
+    if (mobile && mobile.trim()) user.mobile = mobile.trim();
+    if (address && address.trim())
+      user.shop_current_location = address.trim();
 
-    const user = await User.findByIdAndUpdate(
-      retailerId,
-      { $set: updateData },
-      { new: true }
-    );
+    await user.save();
 
-    if (!user) {
-      return res.status(404).json({ success: false });
-    }
-
+    // 🔥 VERY IMPORTANT RESPONSE
     res.json({
       success: true,
       profile: {
         name: user.name,
         mobile: user.mobile,
         address: user.shop_current_location,
-        location: user.location || null
+        location: user.location,
+        locationMeta: {
+          firstSetAt: user.locationMeta?.firstSetAt || null,
+          locked: user.locationMeta?.locked || false
+        }
       }
     });
 
   } catch (err) {
-    console.error("❌ saveProfile error:", err);
+    console.error("❌ Retailer saveProfile error:", err);
     res.status(500).json({ success: false });
   }
 });
