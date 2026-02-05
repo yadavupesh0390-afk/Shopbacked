@@ -951,9 +951,13 @@ app.post("/api/products", async (req, res) => {
       });
     }
 
-    // ✅ VALIDATE WHOLESALER EXISTS
-    const wholesaler = await User.findById(wholesalerId);
-    if (!wholesaler || wholesaler.role !== "wholesaler") {
+    // ✅ CUSTOM ID VALIDATION (NOT ObjectId)
+    const wholesaler = await User.findOne({
+      wholesalerId: wholesalerId.trim(),
+      role: "wholesaler"
+    });
+
+    if (!wholesaler) {
       return res.status(400).json({
         success: false,
         message: "Invalid wholesaler"
@@ -963,8 +967,8 @@ app.post("/api/products", async (req, res) => {
     const product = await Product.create({
       ...req.body,
 
-      // ✅ STORE EXACT ObjectId STRING (NO lowercase)
-      wholesalerId: wholesalerId.toString()
+      // 🔥 STORE EXACT CUSTOM ID
+      wholesalerId: wholesalerId.trim()
     });
 
     res.json({ success: true, product });
