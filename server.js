@@ -1370,14 +1370,14 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
     const { amount, notes } = req.body;
 
     // 1️⃣ Save full order info in DB
-    const orderDoc = await Orders.create({
+    const orderDoc = await Order.create({  // <-- FIXED
       amount,
-      notes,          // Full info safe in DB
+      notes,
       status: "pending",
       createdAt: new Date()
     });
 
-    // 2️⃣ Create Razorpay order (notes small for 20 KB limit)
+    // 2️⃣ Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
       amount: amount * 100,
       currency: "INR",
@@ -1389,13 +1389,12 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
       }
     });
 
-    // 3️⃣ Respond to frontend
     res.json({
       success: true,
       key: process.env.RAZORPAY_KEY_ID,
       amount: razorpayOrder.amount,
       order: razorpayOrder,
-      orderId: orderDoc._id // backend DB id
+      orderId: orderDoc._id
     });
 
   } catch (err) {
@@ -1404,11 +1403,12 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
   }
 });
 
+
 app.post("/api/orders/payment-success", async (req, res) => {
   try {
     const { orderId, razorpayPaymentId } = req.body;
 
-    await Orders.findByIdAndUpdate(orderId, {
+    await Order.findByIdAndUpdate(orderId, {   // <-- FIXED
       status: "paid",
       razorpayPaymentId
     });
