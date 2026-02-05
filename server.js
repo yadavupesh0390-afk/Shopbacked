@@ -942,9 +942,29 @@ const Category = mongoose.model("Category", categorySchema);
 /* ================= PRODUCTS ================= */
 app.post("/api/products", async (req, res) => {
   try {
+    const { wholesalerId } = req.body;
+
+    if (!wholesalerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Wholesaler ID missing"
+      });
+    }
+
+    // ✅ VALIDATE WHOLESALER EXISTS
+    const wholesaler = await User.findById(wholesalerId);
+    if (!wholesaler || wholesaler.role !== "wholesaler") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid wholesaler"
+      });
+    }
+
     const product = await Product.create({
       ...req.body,
-      wholesalerId: req.body.wholesalerId.toLowerCase()
+
+      // ✅ STORE EXACT ObjectId STRING (NO lowercase)
+      wholesalerId: wholesalerId.toString()
     });
 
     res.json({ success: true, product });
@@ -954,17 +974,20 @@ app.post("/api/products", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
-app.get("/api/products/wholesaler/:id", async (req,res)=>{
-try{
-const id = req.params.id.trim();
-const products = await Product.find({
-wholesalerId: { $regex: "^"+id, $options:"i" }
-}).sort({createdAt:-1});
-res.json({success:true, products});
-}catch(err){
-console.log(err);
-res.json({success:false});
-}
+app.get("/api/products/wholesaler/:id", async (req, res) => {
+  try {
+    const id = req.params.id.trim();
+
+    const products = await Product.find({
+      wholesalerId: id
+    }).sort({ createdAt: -1 });
+
+    res.json({ success: true, products });
+
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false });
+  }
 });
 app.get("/api/wholesalers/profile/:id", async (req, res) => {
   try {
