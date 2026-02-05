@@ -1313,56 +1313,7 @@ app.get("/api/retailers/profile/:id", async (req, res) => {
   }
 });
 
-app.post("/api/orders/save", async (req, res) => {
-  try {
-    const {
-      retailerId,
-      wholesalerId,
-      productId,
-      productName,
-      productImage,       // frontend se aayega
-      price,
-      deliveryCharge,
-      totalAmount,
-      vehicleType,
-      retailerLocation,
-      wholesalerLocation,
-      paymentId
-    } = req.body;
 
-    // ✅ VALIDATION
-    if (!retailerId || !wholesalerId || !productId || !paymentId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields"
-      });
-    }
-
-    // ✅ CREATE ORDER
-    const order = await Order.create({
-      paymentId,
-      productId,
-      productName,
-      productImg: productImage || "",    // Order schema ke hisaab
-      price: Number(price) || 0,
-      deliveryCharge: Number(deliveryCharge) || 0,
-      totalAmount: Number(totalAmount) || 0,
-      vehicleType: vehicleType || "",
-      retailerLocation: retailerLocation || null,
-      wholesalerLocation: wholesalerLocation || null,
-      retailerId,
-      wholesalerId,
-      status: "paid",
-      statusHistory: [{ status: "paid", time: Date.now() }]
-    });
-
-    res.json({ success: true, order });
-
-  } catch (err) {
-    console.error("❌ Order save error:", err);
-    res.status(500).json({ success: false, message: "Order save failed" });
-  }
-});
 
 /* ================= PAYMENT ================= */
 app.post("/api/orders/pay-and-create", async (req, res) => {
