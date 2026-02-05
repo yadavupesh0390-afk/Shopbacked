@@ -269,10 +269,9 @@ const crypto = require("crypto");
         }
       }
 
-      /* ================= DIRECT BUY ================= */
+/* ================= DIRECT BUY ================= */
 else {
 
-  // 🔍 FETCH REAL DATA FROM DB
   const product = await Product.findById(notes.productId);
   const retailer = await User.findById(notes.retailerId);
   const wholesaler = await User.findById(notes.wholesalerId);
@@ -297,7 +296,7 @@ else {
 
     /* ===== WHOLESALER ===== */
     wholesalerId: wholesaler._id,
-    wholesalerName: wholesaler.name,
+    wholesalerName: wholesaler.shopName || wholesaler.name,
     wholesalerMobile: wholesaler.mobile,
     wholesalerLocation: wholesaler.location || null,
 
@@ -320,13 +319,14 @@ else {
       safeNumber(notes.retailerDeliveryPay),
 
     status: "paid",
-    statusHistory: [{ status: "paid", time: Date.now() }]
+    statusHistory: [
+      { status: "paid", time: Date.now() }
+    ]
   });
 
   await markOrderPaid(o._id, paymentId);
   createdOrders.push(o);
 }
-
       /* ================= NOTIFICATIONS ================= */
       for (const order of createdOrders) {
 
