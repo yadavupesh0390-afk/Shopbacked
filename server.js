@@ -219,12 +219,22 @@ const crypto = require("crypto");
       /* ================= CART PAYMENT ================= */
 if (notes.type === "cart" && notes.products) {
 
+  if (!notes.retailerId) {
+    console.log("❌ Missing retailerId");
+    return res.json({ success: false });
+  }
+
   let products = [];
 
   try {
-    products = JSON.parse(notes.products);
+    products = JSON.parse(notes.products || "[]");
   } catch (e) {
-    console.error("❌ Product JSON error");
+    console.error("❌ Product JSON parse error");
+    return res.json({ success: false });
+  }
+
+  if (!Array.isArray(products) || products.length === 0) {
+    console.log("❌ Empty products array");
     return res.json({ success: false });
   }
 
@@ -238,7 +248,24 @@ if (notes.type === "cart" && notes.products) {
 
   const cartGroupId = "CART_" + paymentId;
 
+  // 🔥 Prevent duplicate orders if webhook hits twice
+  const existing = await Order.findOne({ cartGroupId });
+  if (existing) {
+    console.log("⚠️ Cart already processed");
+    return res.json({ success: true });
+  }
+
   for (const p of products) {
+
+    if (!p.productId || !p.wholesalerId) {
+      console.log("❌ Missing productId or wholesalerId", p);
+      continue;
+    }
+
+    const price = safeNumber(p.price);
+    const quantity = safeNumber(p.quantity || 1);
+
+    const itemTotal = price * quantity;
 
     const o = await Order.create({
       paymentId,
@@ -248,7 +275,8 @@ if (notes.type === "cart" && notes.products) {
       productId: p.productId,
       productName: p.productName,
       productImg: p.productImg || "",
-      price: safeNumber(p.price),
+      price,
+      quantity,
 
       wholesalerId: p.wholesalerId,
       wholesalerName: p.wholesalerName,
@@ -266,9 +294,7 @@ if (notes.type === "cart" && notes.products) {
       retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
       wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
 
-      totalAmount:
-        safeNumber(p.price) +
-        safeNumber(notes.retailerDeliveryPay),
+      totalAmount: itemTotal, // 🔥 Correct total per item
 
       status: "paid",
       statusHistory: [{ status: "paid", time: Date.now() }]
@@ -278,7 +304,7 @@ if (notes.type === "cart" && notes.products) {
     createdOrders.push(o);
   }
 
-  return res.json({ success: true });  // 🔥 VERY IMPORTANT
+  return res.json({ success: true });
 }
 /* ================= DIRECT BUY ================= */
 else {
