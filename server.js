@@ -216,59 +216,70 @@ const crypto = require("crypto");
       const createdOrders = [];
 
       /* ================= CART PAYMENT ================= */
-      if (notes.products) {
-        let products = [];
+      /* ================= CART PAYMENT ================= */
+if (notes.type === "cart" && notes.products) {
 
-        try {
-          products = JSON.parse(notes.products);
-        } catch (e) {
-          console.error("❌ Product JSON error");
-          return res.json({ success: false });
-        }
+  let products = [];
 
-        const cartGroupId = "CART_" + paymentId;
+  try {
+    products = JSON.parse(notes.products);
+  } catch (e) {
+    console.error("❌ Product JSON error");
+    return res.json({ success: false });
+  }
 
-        for (const p of products) {
-         const o = await Order.create({
-         paymentId,
-         cartGroupId,          // 🔥 SAME FOR ALL
-         isCartOrder: true,    // 🔥 FLAG
+  const wholesalerLocation = notes.wholesalerLocation
+    ? JSON.parse(notes.wholesalerLocation)
+    : null;
 
-    productId: p.productId,
-    productName: p.productName,
-    productImg: p.productImg || "",
-    price: safeNumber(p.price),
+  const retailerLocation = notes.retailerLocation
+    ? JSON.parse(notes.retailerLocation)
+    : null;
 
-    wholesalerId: p.wholesalerId,
-    wholesalerName: p.wholesalerName,
-    wholesalerMobile: p.wholesalerMobile,
-    wholesalerLocation: notes.wholesalerLocation || null,
+  const cartGroupId = "CART_" + paymentId;
 
-    retailerId: notes.retailerId,
-    retailerName: notes.retailerName,
-    retailerMobile: notes.retailerMobile,
-    retailerLocation: notes.retailerLocation || null,
+  for (const p of products) {
 
-    vehicleType: notes.vehicleType,
+    const o = await Order.create({
+      paymentId,
+      cartGroupId,
+      isCartOrder: true,
 
-    deliveryCharge: safeNumber(notes.deliveryCharge),
-    retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
-    wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
+      productId: p.productId,
+      productName: p.productName,
+      productImg: p.productImg || "",
+      price: safeNumber(p.price),
 
-    totalAmount:
-      safeNumber(p.price) +
-      safeNumber(notes.retailerDeliveryPay),
+      wholesalerId: p.wholesalerId,
+      wholesalerName: p.wholesalerName,
+      wholesalerMobile: p.wholesalerMobile,
+      wholesalerLocation,
 
-    status: "paid",
-    statusHistory: [{ status: "paid", time: Date.now() }]
-  });
+      retailerId: notes.retailerId,
+      retailerName: notes.retailerName,
+      retailerMobile: notes.retailerMobile,
+      retailerLocation,
 
-  await markOrderPaid(o._id, paymentId);
+      vehicleType: notes.vehicleType,
 
-          createdOrders.push(o);
-        }
-      }
+      deliveryCharge: safeNumber(notes.deliveryCharge),
+      retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
+      wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
 
+      totalAmount:
+        safeNumber(p.price) +
+        safeNumber(notes.retailerDeliveryPay),
+
+      status: "paid",
+      statusHistory: [{ status: "paid", time: Date.now() }]
+    });
+
+    await markOrderPaid(o._id, paymentId);
+    createdOrders.push(o);
+  }
+
+  return res.json({ success: true });  // 🔥 VERY IMPORTANT
+}
 /* ================= DIRECT BUY ================= */
 else {
 
