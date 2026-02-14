@@ -201,10 +201,13 @@ const crypto = require("crypto");
 
       /* ================= PAYMENT DATA ================= */
       const payment = event.payload.payment.entity;
-      const notes = payment.notes || {};
       const paymentId = payment.id;
 
-      console.log("PAYMENT ID:", paymentId);
+// 👇 ORDER FETCH KARO
+      const orderData = await razorpay.orders.fetch(payment.order_id);
+      const notes = orderData.notes || {};
+      console.log("PAYMENT NOTES:", payment.notes);
+      console.log("ORDER NOTES:", notes);
 
       /* ================= DUPLICATE CHECK ================= */
       const exists = await Order.findOne({ paymentId });
