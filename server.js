@@ -307,7 +307,7 @@ if (notes.type === "cart" && notes.products) {
   return res.json({ success: true });
 }
 /* ================= DIRECT BUY ================= */
-else {
+else if {
 
   const product = await Product.findById(notes.productId);
   const retailer = await User.findById(notes.retailerId);
