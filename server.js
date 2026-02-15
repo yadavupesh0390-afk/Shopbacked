@@ -254,12 +254,11 @@ if (notes.type === "cart" && notes.products) {
 
   const cartGroupId = "CART_" + paymentId;
 
-  // 🔥 Prevent duplicate orders if webhook hits twice
-  const existing = await Order.findOne({ cartGroupId });
-  if (existing) {
-    console.log("⚠️ Cart already processed");
-    return res.json({ success: true });
-  }
+const existing = await Order.findOne({ cartGroupId });
+if (existing) {
+  console.log("⚠️ Cart already processed");
+  return res.json({ success: true });
+}
 
   for (const p of products) {
 
