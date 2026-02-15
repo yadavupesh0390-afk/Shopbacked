@@ -213,11 +213,7 @@ const crypto = require("crypto");
       console.log("ORDER NOTES:", notes);
 
       /* ================= DUPLICATE CHECK ================= */
-      const exists = await Order.findOne({ paymentId });
-      if (exists) {
-        console.log("⚠️ Duplicate webhook ignored:", paymentId);
-        return res.json({ success: true });
-      }
+      
 
       const createdOrders = [];
 
