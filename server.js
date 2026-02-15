@@ -1387,12 +1387,13 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
 
       // 🔥 LIGHTWEIGHT NOTES ONLY
       notes: {
-        type: notes.type || "direct",
-        productId: notes.productId,
-        wholesalerId: notes.wholesalerId,
-        retailerId: notes.retailerId,
-        vehicleType: notes.vehicleType
-      }
+  type: notes.type || "direct",
+  products: notes.products,   // ✅ ADD THIS
+  productId: notes.productId,
+  wholesalerId: notes.wholesalerId,
+  retailerId: notes.retailerId,
+  vehicleType: notes.vehicleType
+     }
     });
 
     res.json({
