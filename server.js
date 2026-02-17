@@ -221,6 +221,13 @@ const crypto = require("crypto");
       /* ================= CART PAYMENT ================= */
 if (notes.type === "cart" && notes.products) {
 
+  const cartGroupId = "CART_" + paymentId;
+
+  console.log("🟢 CART BLOCK ENTERED");
+  console.log("CART TYPE CHECK:", notes.type);
+  console.log("CART PRODUCTS:", notes.products);
+  console.log("Cart group check:", cartGroupId);
+
   if (!notes.retailerId) {
     console.log("❌ Missing retailerId");
     return res.json({ success: false });
@@ -230,6 +237,7 @@ if (notes.type === "cart" && notes.products) {
 
   try {
     products = JSON.parse(notes.products || "[]");
+    console.log("PARSED PRODUCTS:", products);
   } catch (e) {
     console.error("❌ Product JSON parse error");
     return res.json({ success: false });
@@ -240,21 +248,11 @@ if (notes.type === "cart" && notes.products) {
     return res.json({ success: false });
   }
 
-  const wholesalerLocation = notes.wholesalerLocation
-    ? JSON.parse(notes.wholesalerLocation)
-    : null;
-
-  const retailerLocation = notes.retailerLocation
-    ? JSON.parse(notes.retailerLocation)
-    : null;
-
-  const cartGroupId = "CART_" + paymentId;
-
-const existing = await Order.findOne({ cartGroupId });
-if (existing) {
-  console.log("⚠️ Cart already processed");
-  return res.json({ success: true });
-}
+  const existing = await Order.findOne({ cartGroupId });
+  if (existing) {
+    console.log("⚠️ Cart already processed");
+    return res.json({ success: true });
+  }
 
   for (const p of products) {
 
