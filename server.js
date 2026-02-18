@@ -224,9 +224,6 @@ if (notes.type === "cart" && notes.products) {
   const cartGroupId = "CART_" + paymentId;
 
   console.log("🟢 CART BLOCK ENTERED");
-  console.log("CART TYPE CHECK:", notes.type);
-  console.log("CART PRODUCTS:", notes.products);
-  console.log("Cart group check:", cartGroupId);
 
   if (!notes.retailerId) {
     console.log("❌ Missing retailerId");
@@ -234,10 +231,8 @@ if (notes.type === "cart" && notes.products) {
   }
 
   let products = [];
-
   try {
     products = JSON.parse(notes.products || "[]");
-    console.log("PARSED PRODUCTS:", products);
   } catch (e) {
     console.error("❌ Product JSON parse error");
     return res.json({ success: false });
@@ -248,6 +243,16 @@ if (notes.type === "cart" && notes.products) {
     return res.json({ success: false });
   }
 
+  // ✅ SAFE LOCATION PARSE
+  const wholesalerLocation = notes.wholesalerLocation
+    ? JSON.parse(notes.wholesalerLocation)
+    : {};
+
+  const retailerLocation = notes.retailerLocation
+    ? JSON.parse(notes.retailerLocation)
+    : {};
+
+  // Prevent duplicate processing
   const existing = await Order.findOne({ cartGroupId });
   if (existing) {
     console.log("⚠️ Cart already processed");
@@ -274,6 +279,7 @@ if (notes.type === "cart" && notes.products) {
       productId: p.productId,
       productName: p.productName,
       productImg: p.productImg || "",
+
       price,
       quantity,
 
@@ -293,7 +299,10 @@ if (notes.type === "cart" && notes.products) {
       retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
       wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
 
-      totalAmount: itemTotal, // 🔥 Correct total per item
+      distanceKm: safeNumber(notes.distanceKm),
+      timeMinutes: safeNumber(notes.timeMinutes),
+
+      totalAmount: itemTotal + safeNumber(notes.retailerDeliveryPay),
 
       status: "paid",
       statusHistory: [{ status: "paid", time: Date.now() }]
@@ -1377,27 +1386,40 @@ app.post("/api/orders/pay-and-create", async (req, res) => {
     const { amount, notes } = req.body;
 
     const razorpayOrder = await razorpay.orders.create({
-      amount: amount * 100,
+      amount: Math.round(Number(amount) * 100),
       currency: "INR",
       receipt: "rcpt_" + Date.now(),
 
-      // 🔥 LIGHTWEIGHT NOTES ONLY
+      // ✅ FULL NOTES PASS
       notes: {
-  type: notes.type || "direct",
-  products: notes.products,   // ✅ ADD THIS
-  productId: notes.productId,
-  wholesalerId: notes.wholesalerId,
-  retailerId: notes.retailerId,
-  vehicleType: notes.vehicleType
-     }
+        type: notes.type || "direct",
+
+        products: notes.products || "",
+
+        retailerId: notes.retailerId || "",
+        retailerName: notes.retailerName || "",
+        retailerMobile: notes.retailerMobile || "",
+
+        retailerLocation: notes.retailerLocation || "",
+        wholesalerLocation: notes.wholesalerLocation || "",
+
+        vehicleType: notes.vehicleType || "",
+
+        deliveryCharge: notes.deliveryCharge || 0,
+        retailerDeliveryPay: notes.retailerDeliveryPay || 0,
+        wholesalerDeliveryPay: notes.wholesalerDeliveryPay || 0,
+
+        distanceKm: notes.distanceKm || 0,
+        timeMinutes: notes.timeMinutes || 0
+      }
     });
 
     res.json({
-  success: true,
-  key: process.env.RAZORPAY_KEY_ID,
-  orderId: razorpayOrder.id,
-  amount: razorpayOrder.amount
-});
+      success: true,
+      key: process.env.RAZORPAY_KEY_ID,
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount
+    });
 
   } catch (err) {
     console.error("❌ Pay create error:", err);
