@@ -323,63 +323,74 @@ if (notes.type === "cart" && notes.products) {
   return res.json({ success: true });
 }
 /* ================= DIRECT BUY ================= */
-else if (notes.type === "direct" && notes.productId) {
+else if (notes.type === "direct") {
+
+  console.log("🟢 DIRECT BLOCK ENTERED");
+
+  if (!notes.productId || !notes.retailerId || !notes.wholesalerId) {
+    console.log("❌ Missing required IDs in notes");
+    return res.json({ success: false });
+  }
+
+  // 🔁 Prevent duplicate
+  const existing = await Order.findOne({ paymentId });
+  if (existing) {
+    console.log("⚠️ Direct already processed");
+    return res.json({ success: true });
+  }
 
   const product = await Product.findById(notes.productId);
   const retailer = await User.findById(notes.retailerId);
   const wholesaler = await User.findById(notes.wholesalerId);
 
   if (!product || !retailer || !wholesaler) {
-    console.error("❌ Missing DB data", {
-      product: !!product,
-      retailer: !!retailer,
-      wholesaler: !!wholesaler
-    });
+    console.error("❌ Missing DB data");
     return res.json({ success: false });
   }
 
+  const price = safeNumber(product.price);
+  const deliveryPay = safeNumber(notes.retailerDeliveryPay);
+
   const o = await Order.create({
     paymentId,
+    isCartOrder: false,
 
-    /* ===== PRODUCT ===== */
     productId: product._id,
     productName: product.productName,
     productImg: product.images?.[0] || "",
-    price: safeNumber(product.price),
 
-    /* ===== WHOLESALER ===== */
+    price,
+    quantity: 1,
+
     wholesalerId: wholesaler._id,
     wholesalerName: wholesaler.shopName || wholesaler.name,
     wholesalerMobile: wholesaler.mobile,
     wholesalerLocation: wholesaler.location || null,
 
-    /* ===== RETAILER ===== */
     retailerId: retailer._id,
     retailerName: retailer.name,
     retailerMobile: retailer.mobile,
     retailerLocation: retailer.location || null,
 
-    /* ===== DELIVERY ===== */
     vehicleType: notes.vehicleType,
 
     deliveryCharge: safeNumber(notes.deliveryCharge),
-    retailerDeliveryPay: safeNumber(notes.retailerDeliveryPay),
+    retailerDeliveryPay: deliveryPay,
     wholesalerDeliveryPay: safeNumber(notes.wholesalerDeliveryPay),
 
-    /* ===== TOTAL ===== */
-    totalAmount:
-      safeNumber(product.price) +
-      safeNumber(notes.retailerDeliveryPay),
+    totalAmount: price + deliveryPay,
 
     status: "paid",
-    statusHistory: [
-      { status: "paid", time: Date.now() }
-    ]
+    statusHistory: [{ status: "paid", time: Date.now() }]
   });
 
   await markOrderPaid(o._id, paymentId);
   createdOrders.push(o);
+
+  return res.json({ success: true });
 }
+
+  
       /* ================= NOTIFICATIONS ================= */
       for (const order of createdOrders) {
 
