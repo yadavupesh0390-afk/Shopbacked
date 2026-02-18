@@ -587,23 +587,57 @@ async function handleFCMError(err, userId) {
 }
 
 async function getRoadDistanceTime(from, to) {
-  const url = `https://router.project-osrm.org/route/v1/driving/` +
-    `${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
 
-  const res = await axios.get(url);
-
-  if (!res.data.routes || !res.data.routes.length) {
-    throw new Error("OSRM route not found");
+  if (!from?.lat || !from?.lng || !to?.lat || !to?.lng) {
+    return { distanceKm: 0, timeMinutes: 0 };
   }
 
-  const route = res.data.routes[0];
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/` +
+    `${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
 
-  return {
-    distanceKm: route.distance / 1000,     // meters → km
-    timeMinutes: route.duration / 60       // seconds → minutes
-  };
+  try {
+
+    const res = await axios.get(url, { timeout: 5000 });
+
+    if (res.data.routes && res.data.routes.length > 0) {
+
+      const route = res.data.routes[0];
+
+      console.log("✅ OSRM success");
+
+      return {
+        distanceKm: route.distance / 1000,
+        timeMinutes: route.duration / 60
+      };
+    }
+
+    throw new Error("OSRM route not found");
+
+  } catch (err) {
+
+    console.log("⚠️ OSRM failed — using fallback");
+
+    const distanceKm = safeDistance(
+      from.lat,
+      from.lng,
+      to.lat,
+      to.lng
+    );
+
+    if (!distanceKm) {
+      return { distanceKm: 0, timeMinutes: 0 };
+    }
+
+    // Assume 30km/h avg speed
+    const timeMinutes = (distanceKm / 30) * 60;
+
+    return {
+      distanceKm,
+      timeMinutes
+    };
+  }
 }
-
 // delivery calculation
 function calculateDeliveryCharge({
   orderAmount,
