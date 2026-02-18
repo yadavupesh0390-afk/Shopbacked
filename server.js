@@ -218,7 +218,7 @@ const crypto = require("crypto");
       const createdOrders = [];
 
       /* ================= CART PAYMENT ================= */
-      /* ================= CART PAYMENT ================= */
+/* ================= CART PAYMENT ================= */
 if (notes.type === "cart" && notes.products) {
 
   const cartGroupId = "CART_" + paymentId;
@@ -243,21 +243,21 @@ if (notes.type === "cart" && notes.products) {
     return res.json({ success: false });
   }
 
-  // ✅ SAFE LOCATION PARSE
-  const wholesalerLocation = notes.wholesalerLocation
-    ? JSON.parse(notes.wholesalerLocation)
-    : {};
-
-  const retailerLocation = notes.retailerLocation
-    ? JSON.parse(notes.retailerLocation)
-    : {};
-
-  // Prevent duplicate processing
+  // ✅ Prevent duplicate processing
   const existing = await Order.findOne({ cartGroupId });
   if (existing) {
     console.log("⚠️ Cart already processed");
     return res.json({ success: true });
   }
+
+  // ✅ GET RETAILER LOCATION FROM DB
+  const retailer = await User.findById(notes.retailerId);
+  if (!retailer || !retailer.location) {
+    console.log("❌ Retailer location not found in DB");
+    return res.json({ success: false });
+  }
+
+  const retailerLocation = retailer.location;
 
   for (const p of products) {
 
@@ -266,9 +266,17 @@ if (notes.type === "cart" && notes.products) {
       continue;
     }
 
+    // ✅ GET WHOLESALER LOCATION FROM DB
+    const wholesaler = await User.findById(p.wholesalerId);
+    if (!wholesaler || !wholesaler.location) {
+      console.log("❌ Wholesaler location not found in DB");
+      continue;
+    }
+
+    const wholesalerLocation = wholesaler.location;
+
     const price = safeNumber(p.price);
     const quantity = safeNumber(p.quantity || 1);
-
     const itemTotal = price * quantity;
 
     const o = await Order.create({
