@@ -1104,7 +1104,10 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
         $options: "i"
       }
     }).sort({ createdAt: -1 });
-
+    res.json({
+      success: true,
+      products: products
+    });
     console.log("✅ Found products:", products.length);
 
     res.json({
