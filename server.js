@@ -815,6 +815,9 @@ const cartRoutes = require("./cart");
 app.use("/api/cart", cartRoutes);
 /* ================= AUTH ================= */
 app.post("/api/signup", async (req,res)=>{
+  console.log("🔥 Signup API Hit");
+  console.log("📦 Body:", req.body);
+  
 try{
 let {
 role,
