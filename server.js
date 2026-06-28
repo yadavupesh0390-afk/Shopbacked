@@ -1035,13 +1035,11 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
       });
     }
 
-    if (nearestDistance > 20) {
-      return res.json({
-        success: false,
-        message: "No nearby wholesaler found",
-        distance: nearestDistance
-      });
-    }
+    return res.json({
+  success: true,
+  wholesaler: nearest,
+  distance: Number(nearestDistance.toFixed(2))
+});
 
     return res.json({
       success: true,
