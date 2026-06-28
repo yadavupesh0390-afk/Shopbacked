@@ -72,14 +72,21 @@ const User = mongoose.model("User", userSchema);
 const productSchema = new mongoose.Schema({
   wholesalerId: String,
   productName: String,
-  category: String,
+
+  category: {
+    type: String,
+    required: true,
+    default: "other",
+    lowercase: true,
+    trim: true
+  },
+
   price: Number,
   detail: String,
   images: [String],
   shopName: String,
   mobile: String,
   address: String,
-
 }, { timestamps: true });
 
 const Product = mongoose.model("Product", productSchema);
@@ -1062,20 +1069,23 @@ const Category = mongoose.model("Category", categorySchema);
 /* ================= PRODUCTS ================= */
 /* ================= PRODUCTS ================= */
 app.post("/api/products", async (req, res) => {
-  try {
-    const product = await Product.create({
-      ...req.body,
-      wholesalerId: req.body.wholesalerId.toLowerCase()
-    });
+  try {
+    let { category } = req.body;
 
-    res.json({ success: true, product });
+    if (!category) category = "other";
 
-  } catch (err) {
-    console.error("Create product error:", err);
-    res.status(500).json({ success: false });
-  }
+    const product = await Product.create({
+      ...req.body,
+      category: category.toLowerCase().trim()
+    });
+
+    res.json({ success: true, product });
+
+  } catch (err) {
+    console.log(err);
+    res.json({ success: false });
+  }
 });
-
 app.get("/api/products/wholesaler/:id", async (req, res) => {
   try {
     const id = req.params.id.trim();
