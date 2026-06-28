@@ -951,7 +951,87 @@ app.post("/api/admin/unlock-location/:uid", async (req,res)=>{
   await user.save();
   res.json({ success:true });
 });
+/* ================= NEAREST WHOLESALER ================= */
 
+app.post("/api/wholesalers/nearest", async (req, res) => {
+
+  try {
+
+    const { location } = req.body;
+
+    if (
+      !location ||
+      !Number.isFinite(location.lat) ||
+      !Number.isFinite(location.lng)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid location"
+      });
+    }
+
+    // सभी Wholesalers
+    const wholesalers = await User.find({
+      role: "wholesaler"
+    });
+
+    let nearest = null;
+    let nearestDistance = Infinity;
+
+    for (const w of wholesalers) {
+
+      if (
+        !w.location ||
+        !Number.isFinite(w.location.lat) ||
+        !Number.isFinite(w.location.lng)
+      ) {
+        continue;
+      }
+
+      const distance = getDistanceKm(
+        location.lat,
+        location.lng,
+        w.location.lat,
+        w.location.lng
+      );
+
+      if (distance <= 20 && distance < nearestDistance) {
+
+        nearestDistance = distance;
+
+        nearest = {
+          _id: w._id,
+          name: w.name,
+          mobile: w.mobile,
+          distance: Number(distance.toFixed(2))
+        };
+      }
+    }
+
+    if (!nearest) {
+      return res.json({
+        success: false,
+        message: "No wholesaler found within 20 KM"
+      });
+    }
+
+    res.json({
+      success: true,
+      wholesaler: nearest
+    });
+
+  } catch (err) {
+
+    console.error("Nearest wholesaler error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+
+  }
+
+});
 
 app.post("/api/delivery/calculate", async (req, res) => {
   try {
