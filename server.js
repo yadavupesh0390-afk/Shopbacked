@@ -1200,13 +1200,17 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
   try {
     const id = req.params.id.trim();
 
-    console.log("🔍 Searching for ID:", id);
+    console.log("👉 REQUEST WHOLESALER ID:", id);
+
+    const sample = await Product.findOne({});
+    console.log("👉 SAMPLE PRODUCT FROM DB:", sample);
 
     const products = await Product.find({
-      wholesalerId: new mongoose.Types.ObjectId(id)
+      wholesalerId: id
     }).sort({ createdAt: -1 });
 
-    console.log("✅ Found products:", products.length);
+    console.log("👉 FOUND PRODUCTS COUNT:", products.length);
+    console.log("👉 FOUND PRODUCTS SAMPLE:", products[0]);
 
     res.json({
       success: true,
