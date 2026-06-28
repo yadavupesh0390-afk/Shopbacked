@@ -1076,28 +1076,35 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-app.get("/api/products/wholesaler/:id", async (req,res)=>{
-  try{
+app.get("/api/products/wholesaler/:id", async (req, res) => {
+  try {
+    const id = req.params.id.trim();
 
-    const id = req.params.id.trim().toLowerCase();
+    console.log("🔍 Searching for ID:", id);
+
+    const allProducts = await Product.find({});
+    console.log(
+      "📦 All wholesalerIds in DB:",
+      allProducts.map(p => p.wholesalerId)
+    );
 
     const products = await Product.find({
-      wholesalerId: id
+      wholesalerId: {
+        $regex: "^" + id,
+        $options: "i"
+      }
     }).sort({ createdAt: -1 });
 
-    console.log("Searching ID:", id);
-    console.log("Products Found:", products.length);
+    console.log("✅ Found products:", products.length);
 
     res.json({
-      success:true,
+      success: true,
       products
     });
 
-  }catch(err){
-    console.log(err);
-    res.status(500).json({
-      success:false
-    });
+  } catch (err) {
+    console.log("❌ Error:", err);
+    res.json({ success: false });
   }
 });
 app.get("/api/wholesalers/profile/:id", async (req, res) => {
