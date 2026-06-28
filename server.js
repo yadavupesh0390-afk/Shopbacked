@@ -1202,19 +1202,10 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
 
     console.log("🔍 Searching for ID:", id);
 
-    const allProducts = await Product.find({});
-    console.log(
-      "📦 All wholesalerIds in DB:",
-      allProducts.map(p => p.wholesalerId)
-    );
-
     const products = await Product.find({
-      wholesalerId: {
-        $regex: "^" + id,
-        $options: "i"
-      }
+      wholesalerId: new mongoose.Types.ObjectId(id)
     }).sort({ createdAt: -1 });
-    
+
     console.log("✅ Found products:", products.length);
 
     res.json({
@@ -1224,7 +1215,7 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
 
   } catch (err) {
     console.log("❌ Error:", err);
-    res.json({ success: false });
+    res.json({ success: false, products: [] });
   }
 });
 app.get("/api/wholesalers/profile/:id", async (req, res) => {
