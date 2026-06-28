@@ -952,28 +952,38 @@ app.post("/api/admin/unlock-location/:uid", async (req,res)=>{
   res.json({ success:true });
 });
 /* ================= NEAREST WHOLESALER ================= */
+/* ================= NEAREST WHOLESALER ================= */
 
 app.post("/api/wholesalers/nearest", async (req, res) => {
-
   try {
 
     const { location } = req.body;
 
     if (
       !location ||
-      !Number.isFinite(location.lat) ||
-      !Number.isFinite(location.lng)
+      !Number.isFinite(Number(location.lat)) ||
+      !Number.isFinite(Number(location.lng))
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid location"
+        message: "Invalid retailer location"
       });
     }
 
-    // सभी Wholesalers
+    const retailerLocation = {
+      lat: Number(location.lat),
+      lng: Number(location.lng)
+    };
+
+    console.log("📍 Retailer Location:", retailerLocation);
+
+    // सभी wholesaler निकालो
     const wholesalers = await User.find({
-      role: "wholesaler"
+      role: "wholesaler",
+      location: { $exists: true }
     });
+
+    console.log("Total wholesalers:", wholesalers.length);
 
     let nearest = null;
     let nearestDistance = Infinity;
@@ -982,27 +992,35 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
 
       if (
         !w.location ||
-        !Number.isFinite(w.location.lat) ||
-        !Number.isFinite(w.location.lng)
+        !Number.isFinite(Number(w.location.lat)) ||
+        !Number.isFinite(Number(w.location.lng))
       ) {
+        console.log("❌ Location missing:", w._id);
         continue;
       }
 
       const distance = getDistanceKm(
-        location.lat,
-        location.lng,
-        w.location.lat,
-        w.location.lng
+        retailerLocation.lat,
+        retailerLocation.lng,
+        Number(w.location.lat),
+        Number(w.location.lng)
       );
 
-      if (distance <= 20 && distance < nearestDistance) {
+      console.log(
+        "Wholesaler:",
+        w.name,
+        "Distance:",
+        distance.toFixed(2),
+        "KM"
+      );
 
+      if (distance < nearestDistance) {
         nearestDistance = distance;
-
         nearest = {
           _id: w._id,
           name: w.name,
           mobile: w.mobile,
+          location: w.location,
           distance: Number(distance.toFixed(2))
         };
       }
@@ -1011,11 +1029,19 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
     if (!nearest) {
       return res.json({
         success: false,
-        message: "No wholesaler found within 20 KM"
+        message: "No wholesaler location available"
       });
     }
 
-    res.json({
+    // 🔥 अगर 20KM से बाहर है
+    if (nearest.distance > 20) {
+      return res.json({
+        success: false,
+        message: `Nearest wholesaler is ${nearest.distance} KM away`
+      });
+    }
+
+    return res.json({
       success: true,
       wholesaler: nearest
     });
@@ -1024,14 +1050,34 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
 
     console.error("Nearest wholesaler error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server Error"
+      message: err.message
     });
-
   }
-
 });
+
+
+/* ================= DISTANCE FUNCTION ================= */
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+
+  const R = 6371;
+
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
 
 app.post("/api/delivery/calculate", async (req, res) => {
   try {
