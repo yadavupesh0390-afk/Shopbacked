@@ -1077,16 +1077,28 @@ app.post("/api/products", async (req, res) => {
 });
 
 app.get("/api/products/wholesaler/:id", async (req,res)=>{
-try{
-const id = req.params.id.trim();
-const products = await Product.find({
-wholesalerId: { $regex: "^"+id, $options:"i" }
-}).sort({createdAt:-1});
-res.json({success:true, products});
-}catch(err){
-console.log(err);
-res.json({success:false});
-}
+  try{
+
+    const id = req.params.id.trim().toLowerCase();
+
+    const products = await Product.find({
+      wholesalerId: id
+    }).sort({ createdAt: -1 });
+
+    console.log("Searching ID:", id);
+    console.log("Products Found:", products.length);
+
+    res.json({
+      success:true,
+      products
+    });
+
+  }catch(err){
+    console.log(err);
+    res.status(500).json({
+      success:false
+    });
+  }
 });
 app.get("/api/wholesalers/profile/:id", async (req, res) => {
   try {
