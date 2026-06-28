@@ -1351,84 +1351,155 @@ app.delete("/api/products/:id", async (req, res) => {
 // Wholesaler profile
 app.post("/api/wholesalers/saveProfile", async (req, res) => {
   try {
-    const { wholesalerId, name, shopName, mobile, address, location, adminOverride } = req.body;
+
+    console.log("========== SAVE PROFILE ==========");
+    console.log(req.body);
+
+    const {
+      wholesalerId,
+      name,
+      shopName,
+      mobile,
+      address,
+      location,
+      adminOverride
+    } = req.body;
 
     if (!wholesalerId) {
-      return res.status(400).json({ success:false, message:"Wholesaler ID required" });
+      return res.status(400).json({
+        success: false,
+        message: "Wholesaler ID required"
+      });
     }
 
     const user = await User.findById(wholesalerId);
+
     if (!user) {
-      return res.status(404).json({ success:false, message:"User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
     const now = Date.now();
     const TEN_HOURS = 10 * 60 * 60 * 1000;
 
-    // ================= LOCATION LOGIC =================
-    if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+    /* ================= LOCATION ================= */
 
-      const meta = user.locationMeta || {};
-      const firstSetAt = meta.firstSetAt ? new Date(meta.firstSetAt).getTime() : null;
+    if (location) {
 
-      if (meta.locked) {
-        // 🔒 Locked
-        if (adminOverride && !meta.adminOverrideUsed) {
-          user.location = location;
-          user.locationMeta = {
-            ...meta,
-            lastUpdatedAt: new Date(),
-            locked: true,
-            adminOverrideUsed: true
-          };
+      const lat = Number(location.lat);
+      const lng = Number(location.lng);
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+
+        const meta = user.locationMeta || {};
+
+        const firstSetAt = meta.firstSetAt
+          ? new Date(meta.firstSetAt).getTime()
+          : null;
+
+        if (meta.locked) {
+
+          if (adminOverride && !meta.adminOverrideUsed) {
+
+            user.location = {
+              lat,
+              lng
+            };
+
+            user.locationMeta = {
+              ...meta,
+              lastUpdatedAt: new Date(),
+              locked: true,
+              adminOverrideUsed: true
+            };
+          }
+
+        } else {
+
+          if (!firstSetAt) {
+
+            user.location = {
+              lat,
+              lng
+            };
+
+            user.locationMeta = {
+              firstSetAt: new Date(),
+              lastUpdatedAt: new Date(),
+              locked: false,
+              adminOverrideUsed: false
+            };
+
+          } else if ((now - firstSetAt) <= TEN_HOURS) {
+
+            user.location = {
+              lat,
+              lng
+            };
+
+            user.locationMeta.lastUpdatedAt = new Date();
+
+          } else {
+
+            user.locationMeta.locked = true;
+
+          }
+
         }
-      } else {
-        // 🔓 Not locked
-        if (!firstSetAt) {
-          user.location = location;
-          user.locationMeta = {
-            firstSetAt: new Date(),
-            lastUpdatedAt: new Date(),
-            locked: false,
-            adminOverrideUsed: false
-          };
-        }
-        else if (now - firstSetAt <= TEN_HOURS) {
-          user.location = location;
-          user.locationMeta.lastUpdatedAt = new Date();
-        }
-        else {
-          // ⏱️ Time expired → lock only
-          user.locationMeta.locked = true;
-        }
+
       }
+
     }
 
-    // ================= PROFILE FIELDS =================
-    if (shopName || name) user.name = (shopName || name).trim();
-    if (mobile) user.mobile = mobile.trim();
-    if (address) user.shop_current_location = address.trim();
+    /* ================= PROFILE ================= */
+
+    if (shopName || name) {
+      user.name = (shopName || name).trim();
+    }
+
+    if (mobile) {
+      user.mobile = mobile.trim();
+    }
+
+    if (address) {
+      user.shop_current_location = address.trim();
+    }
+
+    console.log("Saving User...");
+    console.log(user);
 
     await user.save();
 
-    res.json({
-      success:true,
-      profile:{
+    console.log("Profile Saved Successfully");
+
+    return res.json({
+      success: true,
+      profile: {
         name: user.name,
         mobile: user.mobile,
         address: user.shop_current_location,
         location: user.location,
         locationMeta: user.locationMeta,
-        canRequestAdminHelp: user.locationMeta?.locked === true
+        canRequestAdminHelp:
+          user.locationMeta?.locked === true
       }
     });
 
-  } catch(err){
-    console.error("Wholesaler save error:", err);
-    res.status(500).json({ success:false });
+  } catch (err) {
+
+    console.error("========== SAVE PROFILE ERROR ==========");
+    console.error(err);
+    console.error(err.stack);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
   }
 });
-
 
 // Retailer profile
 app.post("/api/retailers/saveProfile", async (req, res) => {
