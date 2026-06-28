@@ -954,6 +954,8 @@ app.post("/api/admin/unlock-location/:uid", async (req,res)=>{
 /* ================= NEAREST WHOLESALER ================= */
 /* ================= NEAREST WHOLESALER ================= */
 
+/* ===================== NEAREST WHOLESALER ===================== */
+
 app.post("/api/wholesalers/nearest", async (req, res) => {
   try {
 
@@ -961,12 +963,12 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
 
     if (
       !location ||
-      !Number.isFinite(Number(location.lat)) ||
-      !Number.isFinite(Number(location.lng))
+      location.lat === undefined ||
+      location.lng === undefined
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid retailer location"
+        message: "Retailer location missing"
       });
     }
 
@@ -975,27 +977,30 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
       lng: Number(location.lng)
     };
 
+    console.log("====================================");
     console.log("📍 Retailer Location:", retailerLocation);
 
-    // सभी wholesaler निकालो
     const wholesalers = await User.find({
-      role: "wholesaler",
-      location: { $exists: true }
+      role: "wholesaler"
     });
 
-    console.log("Total wholesalers:", wholesalers.length);
+    console.log("👤 Total Wholesalers:", wholesalers.length);
 
     let nearest = null;
     let nearestDistance = Infinity;
 
     for (const w of wholesalers) {
 
+      console.log("------------------------------------");
+      console.log("Wholesaler:", w.name);
+      console.log("Saved Location:", w.location);
+
       if (
         !w.location ||
-        !Number.isFinite(Number(w.location.lat)) ||
-        !Number.isFinite(Number(w.location.lng))
+        w.location.lat == null ||
+        w.location.lng == null
       ) {
-        console.log("❌ Location missing:", w._id);
+        console.log("❌ Location Missing");
         continue;
       }
 
@@ -1006,38 +1011,35 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
         Number(w.location.lng)
       );
 
-      console.log(
-        "Wholesaler:",
-        w.name,
-        "Distance:",
-        distance.toFixed(2),
-        "KM"
-      );
+      console.log("📏 Distance:", distance, "KM");
 
       if (distance < nearestDistance) {
         nearestDistance = distance;
+
         nearest = {
           _id: w._id,
           name: w.name,
           mobile: w.mobile,
-          location: w.location,
           distance: Number(distance.toFixed(2))
         };
       }
     }
 
+    console.log("====================================");
+    console.log("Nearest Distance:", nearestDistance);
+
     if (!nearest) {
       return res.json({
         success: false,
-        message: "No wholesaler location available"
+        message: "No wholesaler location found"
       });
     }
 
-    // 🔥 अगर 20KM से बाहर है
-    if (nearest.distance > 20) {
+    if (nearestDistance > 20) {
       return res.json({
         success: false,
-        message: `Nearest wholesaler is ${nearest.distance} KM away`
+        message: "No nearby wholesaler found",
+        distance: nearestDistance
       });
     }
 
@@ -1047,8 +1049,7 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
     });
 
   } catch (err) {
-
-    console.error("Nearest wholesaler error:", err);
+    console.error("Nearest API Error:", err);
 
     return res.status(500).json({
       success: false,
@@ -1058,9 +1059,14 @@ app.post("/api/wholesalers/nearest", async (req, res) => {
 });
 
 
-/* ================= DISTANCE FUNCTION ================= */
+/* ===================== DISTANCE FUNCTION ===================== */
 
 function getDistanceKm(lat1, lng1, lat2, lng2) {
+
+  lat1 = Number(lat1);
+  lng1 = Number(lng1);
+  lat2 = Number(lat2);
+  lng2 = Number(lng2);
 
   const R = 6371;
 
@@ -1078,6 +1084,8 @@ function getDistanceKm(lat1, lng1, lat2, lng2) {
 
   return R * c;
 }
+
+
 
 app.post("/api/delivery/calculate", async (req, res) => {
   try {
