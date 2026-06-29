@@ -1202,36 +1202,15 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
 
     console.log("👉 REQUEST WHOLESALER ID:", id);
 
-    const sample = await Product.findOne({});
-    console.log("👉 SAMPLE PRODUCT FROM DB:", sample);
+    console.time("PRODUCT QUERY");
 
-    // Sab products ka wholesalerId print karo
-    const allProducts = await Product.find({});
-    console.log("👉 TOTAL PRODUCTS IN DB:", allProducts.length);
-
-    allProducts.forEach((p, i) => {
-      console.log(
-        `📦 Product ${i + 1}:`,
-        "Name =", p.name,
-        "| wholesalerId =", p.wholesalerId,
-        "| category =", p.category
-      );
-    });
-
-    // Flexible search
     const products = await Product.find({
-      wholesalerId: { $regex: "^" + id, $options: "i" }
+      wholesalerId: id
     }).sort({ createdAt: -1 });
 
-    console.log("✅ FOUND PRODUCTS COUNT:", products.length);
+    console.timeEnd("PRODUCT QUERY");
 
-    products.forEach((p, i) => {
-      console.log(
-        `✅ Matched Product ${i + 1}:`,
-        p.name,
-        "| category =", p.category
-      );
-    });
+    console.log("✅ FOUND PRODUCTS:", products.length);
 
     res.json({
       success: true,
@@ -1240,6 +1219,7 @@ app.get("/api/products/wholesaler/:id", async (req, res) => {
 
   } catch (err) {
     console.log("❌ Error:", err);
+
     res.status(500).json({
       success: false,
       products: []
